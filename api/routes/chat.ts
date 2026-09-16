@@ -20,7 +20,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { computeAutoTuneParams, type AutoTuneStrategy } from '../../src/lib/autotune'
 import { applyParseltongue, type ParseltongueConfig } from '../../src/lib/parseltongue'
 import { allModules, applySTMs, type STMModule } from '../../src/stm/modules'
-import { sendMessage } from '../../src/lib/openrouter'
+import { sendMessage, sendMessageWithTools, type ToolDefinition, type ToolCall } from '../../src/lib/openrouter'
 import { getSharedProfiles } from './autotune'
 import {
   GODMODE_SYSTEM_PROMPT,
@@ -229,7 +229,24 @@ chatRoutes.post('/completions', async (req, res) => {
       repetition_penalty,
       // Dataset opt-in
       contribute_to_dataset = false,
+      // OpenAI-style tool/function calling (see docs/openclaw-compat.md).
+      // Only supported in non-streaming, single-model mode for now.
+      tools,
+      tool_choice,
     } = req.body
+
+    const hasTools = Array.isArray(tools) && tools.length > 0
+
+    if (hasTools && stream) {
+      res.status(400).json({
+        error: {
+          message: 'tools is not supported yet with stream: true. Send stream: false (or omit it) when using tools.',
+          type: 'invalid_request_error',
+          code: 'tools_streaming_unsupported',
+        },
+      })
+      return
+    }
 
     // Validate
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -621,10 +638,18 @@ chatRoutes.post('/completions', async (req, res) => {
     }
 
     // ── Single-model path ─────────────────────────────────────────────
-    // Run the G0DM0D3 pipeline
+    // Run the G0DM0D3 pipeline. When tools are in play, force godmode and
+    // parseltongue off regardless of what was requested: godmode's jailbreak
+    // system prompt and parseltongue's input perturbation are both built for
+    // creative/red-team use and actively fight against reliable structured
+    // tool-calling (a tool-using agent needs a plain, predictable assistant,
+    // not an obfuscated or "liberated" one). See docs/openclaw-compat.md.
     const pipeline = runPipeline({
-      messages, model, godmode, custom_system_prompt,
-      autotune, strategy, parseltongue,
+      messages, model,
+      godmode: hasTools ? false : godmode,
+      custom_system_prompt,
+      autotune, strategy,
+      parseltongue: hasTools ? false : parseltongue,
       parseltongue_technique, parseltongue_intensity, stm_modules,
       temperature, top_p, top_k,
       frequency_penalty, presence_penalty, repetition_penalty,
@@ -850,7 +875,7 @@ chatRoutes.post('/completions', async (req, res) => {
     }
 
     // ── Non-streaming mode ────────────────────────────────────────────
-    const response = await sendMessage({
+    const sharedSendOpts = {
       messages: pipeline.processedMessages,
       model,
       apiKey: openrouter_api_key,
@@ -861,10 +886,27 @@ chatRoutes.post('/completions', async (req, res) => {
       frequency_penalty: pipeline.finalParams.frequency_penalty,
       presence_penalty: pipeline.finalParams.presence_penalty,
       repetition_penalty: pipeline.finalParams.repetition_penalty,
-    })
+    }
 
-    // STM transforms
-    const { finalResponse, stmResult } = applySTMPost(response, stm_modules)
+    let response: string
+    let toolCalls: ToolCall[] | undefined
+    if (hasTools) {
+      const message = await sendMessageWithTools({
+        ...sharedSendOpts,
+        tools: tools as ToolDefinition[],
+        tool_choice,
+      })
+      response = message.content ?? ''
+      toolCalls = message.tool_calls
+    } else {
+      response = await sendMessage(sharedSendOpts)
+      toolCalls = undefined
+    }
+
+    // STM transforms (skip for pure tool-call responses with no text to touch)
+    const { finalResponse, stmResult } = toolCalls && toolCalls.length > 0 && !response
+      ? { finalResponse: response, stmResult: null as any }
+      : applySTMPost(response, stm_modules)
 
     // Dataset collection (opt-in)
     let datasetId: string | null = null
@@ -930,9 +972,10 @@ chatRoutes.post('/completions', async (req, res) => {
           index: 0,
           message: {
             role: 'assistant',
-            content: finalResponse,
+            content: toolCalls && toolCalls.length > 0 ? (finalResponse || null) : finalResponse,
+            ...(toolCalls && toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
           },
-          finish_reason: 'stop',
+          finish_reason: toolCalls && toolCalls.length > 0 ? 'tool_calls' : 'stop',
         },
       ],
       usage: {

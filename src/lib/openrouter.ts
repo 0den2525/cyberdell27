@@ -60,6 +60,25 @@ interface Message {
   content: string
 }
 
+/** OpenAI-style tool/function-calling definition, passed through as-is to OpenRouter. */
+export interface ToolDefinition {
+  type: 'function'
+  function: {
+    name: string
+    description?: string
+    parameters?: Record<string, unknown>
+  }
+}
+
+export interface ToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
 interface SendMessageOptions {
   messages: Message[]
   model: string
@@ -73,16 +92,22 @@ interface SendMessageOptions {
   frequency_penalty?: number
   presence_penalty?: number
   repetition_penalty?: number
+  /** Tool/function-calling passthrough (OpenAI format). Forwarded to OpenRouter untouched. */
+  tools?: ToolDefinition[]
+  tool_choice?: 'auto' | 'none' | 'required' | Record<string, unknown>
+}
+
+interface OpenRouterMessage {
+  role: string
+  content: string | null
+  tool_calls?: ToolCall[]
 }
 
 interface OpenRouterResponse {
   id: string
   model: string
   choices: {
-    message: {
-      role: string
-      content: string
-    }
+    message: OpenRouterMessage
     finish_reason: string
   }[]
   usage?: {
@@ -92,65 +117,52 @@ interface OpenRouterResponse {
   }
 }
 
-/**
- * Send a message to the AI model via OpenRouter
- */
-export async function sendMessage({
-  messages,
-  model,
-  apiKey,
-  noLog = false,
-  signal,
-  temperature = 0.7,
-  maxTokens = 4096,
-  top_p,
-  top_k,
-  frequency_penalty,
-  presence_penalty,
-  repetition_penalty
-}: SendMessageOptions): Promise<string> {
-  if (!apiKey) {
-    throw new Error('No API key set. Go to Settings → API Key and enter your OpenRouter key from [openrouter.ai/keys](https://openrouter.ai/keys).')
-  }
-
-  // Prepare request body
+function buildRequestBody({
+  messages, model, temperature = 0.7, maxTokens = 4096,
+  top_p, top_k, frequency_penalty, presence_penalty, repetition_penalty,
+  noLog = false, tools, tool_choice,
+}: SendMessageOptions): Record<string, unknown> {
   const body: Record<string, unknown> = {
     model,
     messages,
     temperature,
-    max_tokens: maxTokens
+    max_tokens: maxTokens,
   }
 
-  // Add optional sampling parameters (only if explicitly set)
   if (top_p !== undefined) body.top_p = top_p
   if (top_k !== undefined) body.top_k = top_k
   if (frequency_penalty !== undefined) body.frequency_penalty = frequency_penalty
   if (presence_penalty !== undefined) body.presence_penalty = presence_penalty
   if (repetition_penalty !== undefined) body.repetition_penalty = repetition_penalty
+  if (tools && tools.length > 0) body.tools = tools
+  if (tool_choice !== undefined) body.tool_choice = tool_choice
 
-  // Add provider-specific options if needed
   const providerOptions: Record<string, unknown> = {}
-
-  // Handle no-log mode for supported providers
   if (noLog) {
-    // OpenRouter passes through provider preferences
     providerOptions['allow_fallbacks'] = false
   }
-
   if (Object.keys(providerOptions).length > 0) {
     body.provider = providerOptions
+  }
+
+  return body
+}
+
+async function postToOpenRouter(opts: SendMessageOptions): Promise<OpenRouterMessage> {
+  if (!opts.apiKey) {
+    throw new Error('No API key set. Go to Settings → API Key and enter your OpenRouter key from [openrouter.ai/keys](https://openrouter.ai/keys).')
   }
 
   const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${opts.apiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'https://godmod3.ai',
       'X-Title': 'GODMOD3.AI'
     },
-    body: JSON.stringify(body),
-    signal
+    body: JSON.stringify(buildRequestBody(opts)),
+    signal: opts.signal
   })
 
   if (!response.ok) {
@@ -164,7 +176,26 @@ export async function sendMessage({
     throw new Error('No response from model')
   }
 
-  return data.choices[0].message.content
+  return data.choices[0].message
+}
+
+/**
+ * Send a message to the AI model via OpenRouter. Back-compat surface: always
+ * returns plain text content, same as before tool-calling support existed.
+ */
+export async function sendMessage(opts: SendMessageOptions): Promise<string> {
+  const message = await postToOpenRouter(opts)
+  return message.content ?? ''
+}
+
+/**
+ * Same as sendMessage, but for tool-calling callers (see /v1/chat/completions
+ * with `tools` set): returns the full assistant message, including
+ * `tool_calls` when the model decided to call a tool instead of (or in
+ * addition to) replying with text.
+ */
+export async function sendMessageWithTools(opts: SendMessageOptions): Promise<OpenRouterMessage> {
+  return postToOpenRouter(opts)
 }
 
 /**
@@ -764,5 +795,5 @@ export async function sendMessageViaVenice({
     throw new Error('No response from Venice model')
   }
 
-  return data.choices[0].message.content
+  return data.choices[0].message.content ?? ''
 }
