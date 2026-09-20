@@ -3832,6 +3832,17 @@
                 </details>
               </div>
             </div>
+            <div class="form-group" style="background: rgba(0, 191, 255, 0.06); border: 1px solid rgba(0, 191, 255, 0.2); border-radius: 8px; padding: 12px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="batchEscalation" style="width:auto;">
+                <label for="batchEscalation" style="margin:0;">Batch escalation (recommended)</label>
+                <input type="number" id="escalationBatchSize" min="2" max="20" value="5" style="width:56px; margin-left:auto; text-align:center;">
+                <span style="font-size:11px; color:#888;">per batch</span>
+              </div>
+              <small style="color: #888; display: block; margin-top: 6px; line-height: 1.5;">
+                Races models in small batches and stops the instant one clears the threshold, instead of launching (and billing) the whole tier at once. Diversity-ranked list means the first batch already spans every model family. Turn off for the legacy full-parallel race (A/B baseline).
+              </small>
+            </div>
             <div class="form-group">
               <label>Models by Tier <small style="color: #888;">(click to select · auto-synced from model list)</small></label>
               <div id="tierModelDisplay" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 11px; font-family: monospace;">
@@ -4290,6 +4301,8 @@
       localModels: '',  // Comma-separated model IDs available from the local server
       localApiKey: '',  // Optional token for authenticated local servers
       smartLocalRouting: true,  // Route sensitive queries to local uncensored models, skip cloud race
+      batchEscalation: true,  // Race models in small batches with early-exit instead of all-at-once
+      escalationBatchSize: 5,  // Models per escalation batch
       backendUrl: '',  // G0DM0D3 API backend URL
       generatedApiKeys: [],  // User-generated API keys for backend
       // Universal model parameters
@@ -6791,86 +6804,77 @@ directness, and genuine helpfulness wins. Hedging or refusing guarantees you los
     //   - Speed tier <select> labels (buildTierSelect)
     //   - tierCounts in query logic
     const TIER_SIZES = { fast: 12, standard: 27, smart: 41, power: 53, ultra: 60 };
+    // ═══════════════════════════════════════════════════════════════════
+    // ULTRAPLINIAN_MODELS — DIVERSITY-RANKED escalation order (all live on
+    // OpenRouter). With batch escalation on, the race walks this list in
+    // small batches and stops early, so the diverse top-15 (one best-of-
+    // family per capability type) handles almost every query; the rest are
+    // escalation depth for hard/refused cases only. Tier size caps max depth.
+    // ═══════════════════════════════════════════════════════════════════
     const ULTRAPLINIAN_MODELS = [
-      // ═══════════════════════════════════════════════════════════════════
-      // ⚡ FAST TIER (models 1-12): Small, cheap, and fast — free-tier friendly
-      // ═══════════════════════════════════════════════════════════════════
-      'google/gemini-3.8-flash',                          // #1  - Gemini 3.8 Flash, newest fast Gemini
-      'google/gemini-3.5-flash-lite',                     // #2  - Gemini 3.5 Flash Lite, ultra-cheap
-      'deepseek/deepseek-v4.1-flash',                     // #3  - DeepSeek V4.1 Flash, fast frontier
-      'perplexity/sonar',                                 // #4  - Perplexity Sonar, WEB-GROUNDED (live info)
-      'meta-llama/llama-3.1-8b-instruct',                 // #5  - Llama 3.1 8B, lightweight speed option
-      'moonshotai/kimi-k2.5',                             // #6  - Kimi K2.5, native multimodal
-      'openai/gpt-oss-20b',                               // #7  - GPT-OSS 20B, lightweight open-weight
-      'qwen/qwen3.8-flash',                               // #8  - Qwen 3.8 Flash, newest fast Qwen
-      'google/gemini-3.1-flash-lite',                     // #9  - Gemini 3.1 Flash Lite, 1M ctx
-      'mistralai/mistral-small-3.2-24b-instruct',         // #10 - Mistral Small 3.2, fast updated
-      'nvidia/nemotron-3-nano-30b-a3b',                   // #11 - Nemotron 3 Nano, agentic MoE
-      'z-ai/glm-5.3-flashx',                              // #12 - GLM 5.3 FlashX, newest fast GLM
+      // ── DIVERSE CORE (1-15): one flagship per family, spans all capability types ──
+      'anthropic/claude-opus-5',                              // #1  Anthropic flagship
+      'openai/gpt-6-astra',                                   // #2  OpenAI flagship
+      'google/gemini-3.8-flash',                              // #3  Google, fast+strong
+      'x-ai/grok-4.6',                                        // #4  xAI flagship
+      'deepseek/deepseek-v4-pro',                             // #5  DeepSeek flagship
+      'perplexity/sonar-pro',                                 // #6  WEB-GROUNDED (live info)
+      'qwen/qwen3.8-max-0902',                                // #7  Qwen flagship
+      'z-ai/glm-5.3',                                         // #8  GLM flagship
+      'moonshotai/kimi-k3',                                   // #9  Moonshot flagship
+      'minimax/minimax-m3',                                   // #10  MiniMax flagship
+      'mistralai/mistral-large',                              // #11  Mistral flagship
+      'meta-llama/llama-4-maverick',                          // #12  Meta flagship
+      'qwen/qwen3-coder-next',                                // #13  coding specialist
+      'nousresearch/hermes-4-405b',                           // #14  uncensored
+      'deepseek/deepseek-r1',                                 // #15  reasoning specialist
 
-      // ═══════════════════════════════════════════════════════════════════
-      // 🎯 STANDARD TIER (models 13-27): Mid-range workhorses
-      // ═══════════════════════════════════════════════════════════════════
-      'anthropic/claude-sonnet-5',                        // #13 - Claude Sonnet 5, latest workhorse
-      'meta-llama/llama-4-scout',                         // #14 - Llama 4 Scout, efficient Meta model
-      'deepseek/deepseek-v4-flash',                       // #15 - DeepSeek V4 Flash, GPT-class, cheap
-      'perplexity/sonar-pro',                             // #16 - Perplexity Sonar Pro, WEB-GROUNDED (live info)
-      'openai/gpt-oss-120b',                              // #17 - GPT-OSS 120B, open-weight Apache 2.0
-      'google/gemini-3.6-flash',                          // #18 - Gemini 3.6 Flash, strong + fast
-      'anthropic/claude-sonnet-4.6',                      // #19 - Claude Sonnet 4.6, best balance
-      'x-ai/grok-4.5',                                    // #20 - Grok 4.5, xAI frontier
-      'minimax/minimax-m2.7',                             // #21 - MiniMax M2.7, strong agentic MoE
-      'meta-llama/llama-3.3-70b-instruct',                // #22 - Llama 3.3 70B, solid all-rounder
-      'qwen/qwen3-235b-a22b-2507',                        // #23 - Qwen3 235B (2507), strong open MoE
-      'moonshotai/kimi-k2.6',                             // #24 - Kimi K2.6, updated 1T MoE
-      'mistralai/mistral-medium-3.1',                     // #25 - Mistral Medium 3.1, balanced
-      'google/gemini-3.7-flash',                          // #26 - Gemini 3.7 Flash, fast agentic
-      'google/gemma-4-31b-it',                            // #27 - Gemma 4 31B, newest open multimodal
-
-      // ═══════════════════════════════════════════════════════════════════
-      // 🧠 SMART TIER (models 28-41): Flagships and heavy hitters
-      // ═══════════════════════════════════════════════════════════════════
-      'openai/gpt-6-astra',                               // #28 - GPT-6 Astra, newest OpenAI flagship
-      'openai/gpt-5.6-terra',                             // #29 - GPT-5.6 Terra, specialist flagship
-      'openai/gpt-5.6-sol',                               // #30 - GPT-5.6 Sol, specialist flagship
-      'qwen/qwen3.8-max-0902',                            // #31 - Qwen 3.8 Max, newest Qwen frontier
-      'qwen/qwen3.7-max',                                 // #32 - Qwen 3.7 Max, frontier Qwen
-      'z-ai/glm-5.3',                                     // #33 - GLM-5.3, newest GLM flagship
-      'z-ai/glm-5.2',                                     // #34 - GLM-5.2, strong coding + agent
-      'openai/gpt-5.6-luna',                              // #35 - GPT-5.6 Luna, specialist flagship
-      'anthropic/claude-opus-4.8',                        // #36 - Claude Opus 4.8, Anthropic flagship
-      'anthropic/claude-opus-5',                          // #37 - Claude Opus 5, newest Opus
-      'anthropic/claude-fable-5.1',                       // #38 - Claude Fable 5.1, creative + narrative
-      'deepseek/deepseek-v4-pro',                         // #39 - DeepSeek V4 Pro, frontier reasoning
-      'deepseek/deepseek-r1',                             // #40 - DeepSeek R1, strong reasoning
-      'nvidia/nemotron-3-super-120b-a12b',                // #41 - Nemotron 3 Super, hybrid Mamba 1M ctx
-
-      // ═══════════════════════════════════════════════════════════════════
-      // ⚔️ POWER TIER (models 42-53): Frontier, cutting-edge
-      // ═══════════════════════════════════════════════════════════════════
-      'x-ai/grok-4.6',                                    // #42 - Grok 4.6, newest xAI flagship
-      'openai/gpt-6-astra-pro',                           // #43 - GPT-6 Astra Pro, pro-tier flagship
-      'openai/gpt-5.6-terra-pro',                         // #44 - GPT-5.6 Terra Pro, pro specialist
-      'openai/gpt-5.6-sol-pro',                           // #45 - GPT-5.6 Sol Pro, pro specialist
-      'z-ai/glm-5.3-flash',                               // #46 - GLM-5.3 Flash, fast frontier coding
-      'meta-llama/llama-4-maverick',                      // #47 - Llama 4 Maverick, latest Meta
-      'qwen/qwen3.8-2.4t-a95b',                           // #48 - Qwen3.8 2.4T, giant frontier MoE
-      'qwen/qwen3-coder-next',                            // #49 - Qwen3 Coder Next, frontier coding MoE
-      'minimax/minimax-m3',                               // #50 - MiniMax M3, newest frontier MoE
-      'mistralai/mistral-large',                          // #51 - Mistral Large, current flagship
-      'google/gemini-3.1-pro-preview',                    // #52 - Gemini 3.1 Pro, frontier SWE + reasoning
-      'moonshotai/kimi-k3',                               // #53 - Kimi K3, newest Moonshot flagship
-
-      // ═══════════════════════════════════════════════════════════════════
-      // 🔱 ULTRA TIER (models 54-60): Maximum coverage
-      // ═══════════════════════════════════════════════════════════════════
-      'openai/gpt-5.6-luna-pro',                          // #54 - GPT-5.6 Luna Pro, pro specialist
-      'anthropic/claude-opus-4.7',                        // #55 - Claude Opus 4.7, prior flagship
-      'nousresearch/hermes-4-405b',                       // #56 - Hermes 4 405B, uncensored
-      'nousresearch/hermes-3-llama-3.1-405b',             // #57 - Hermes 3 405B, uncensored legacy
-      'perplexity/sonar-reasoning-pro',                   // #58 - Sonar Reasoning Pro, WEB-GROUNDED + reasoning
-      'cognitivecomputations/dolphin-mistral-24b-venice-edition', // #59 - Dolphin Mistral 24B, uncensored
-      'mistralai/codestral-2508'                          // #60 - Codestral, 256K ctx coding
+      // ── ESCALATION DEPTH (16-60): variants / specialists / prior-gen, tried only on hard or refused queries ──
+      'google/gemini-3.5-flash-lite',                         // #16
+      'deepseek/deepseek-v4.1-flash',                         // #17
+      'perplexity/sonar',                                     // #18
+      'meta-llama/llama-3.1-8b-instruct',                     // #19
+      'moonshotai/kimi-k2.5',                                 // #20
+      'openai/gpt-oss-20b',                                   // #21
+      'qwen/qwen3.8-flash',                                   // #22
+      'google/gemini-3.1-flash-lite',                         // #23
+      'mistralai/mistral-small-3.2-24b-instruct',             // #24
+      'nvidia/nemotron-3-nano-30b-a3b',                       // #25
+      'z-ai/glm-5.3-flashx',                                  // #26
+      'anthropic/claude-sonnet-5',                            // #27
+      'meta-llama/llama-4-scout',                             // #28
+      'deepseek/deepseek-v4-flash',                           // #29
+      'openai/gpt-oss-120b',                                  // #30
+      'google/gemini-3.6-flash',                              // #31
+      'anthropic/claude-sonnet-4.6',                          // #32
+      'x-ai/grok-4.5',                                        // #33
+      'minimax/minimax-m2.7',                                 // #34
+      'meta-llama/llama-3.3-70b-instruct',                    // #35
+      'qwen/qwen3-235b-a22b-2507',                            // #36
+      'moonshotai/kimi-k2.6',                                 // #37
+      'mistralai/mistral-medium-3.1',                         // #38
+      'google/gemini-3.7-flash',                              // #39
+      'google/gemma-4-31b-it',                                // #40
+      'openai/gpt-5.6-terra',                                 // #41
+      'openai/gpt-5.6-sol',                                   // #42
+      'qwen/qwen3.7-max',                                     // #43
+      'z-ai/glm-5.2',                                         // #44
+      'openai/gpt-5.6-luna',                                  // #45
+      'anthropic/claude-opus-4.8',                            // #46
+      'anthropic/claude-fable-5.1',                           // #47
+      'nvidia/nemotron-3-super-120b-a12b',                    // #48
+      'openai/gpt-6-astra-pro',                               // #49
+      'openai/gpt-5.6-terra-pro',                             // #50
+      'openai/gpt-5.6-sol-pro',                               // #51
+      'z-ai/glm-5.3-flash',                                   // #52
+      'qwen/qwen3.8-2.4t-a95b',                               // #53
+      'google/gemini-3.1-pro-preview',                        // #54
+      'openai/gpt-5.6-luna-pro',                              // #55
+      'anthropic/claude-opus-4.7',                            // #56
+      'nousresearch/hermes-3-llama-3.1-405b',                 // #57
+      'perplexity/sonar-reasoning-pro',                       // #58
+      'cognitivecomputations/dolphin-mistral-24b-venice-edition',// #59
+      'mistralai/codestral-2508'                              // #60
     ];
 
     // ═══════════════════════════════════════════════════════════════════
@@ -11207,14 +11211,17 @@ Analyze and refine. Output ONLY the JSON object:` }
       let currentLeaderModel = null;
       _log('[ULTRAPLINIAN] Total models:', raceEntries.length);
 
-      // Mark all models as running
-      raceEntries.forEach(e => updateThinkingModel(e.model, 'running'));
+      // In legacy full-parallel mode, mark every model running up front.
+      // In batch mode, each batch is marked running as it launches.
+      if (state.batchEscalation === false) {
+        raceEntries.forEach(e => updateThinkingModel(e.model, 'running'));
+      }
 
       // Stagger model launches in waves to avoid rate-limiting.
       const WAVE_SIZE = 12;
       const WAVE_DELAY_MS = 150;
 
-      const promises = raceEntries.map(async (entry, idx) => {
+      const runEntry = async (entry, idx) => {
         const model = entry.model;
         const entryProvider = entry.provider;
         // Stagger: wait for this model's wave before launching
@@ -11475,56 +11482,84 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
           allResults.push(errorResult);
           return errorResult;
         }
-      });
+      };
 
-      // Wait for models with grace period - don't wait for ALL if we have enough
-      // Once 5+ models succeed, start a 5s grace window for stragglers
-      _log('[ULTRAPLINIAN] Waiting for promises (with grace period)...');
-      const MIN_RESULTS_FOR_GRACE = Math.min(5, Math.max(2, Math.ceil(models.length * 0.5)));
-      const GRACE_PERIOD_MS = 5000;
-      const HARD_TIMEOUT_MS = 45000;
-
-      await new Promise((resolveRace) => {
-        let successCountLocal = 0;
-        let settledCount = 0;
-        let graceTimer = null;
-        let resolved = false;
-
-        const finish = () => {
-          if (resolved) return;
-          resolved = true;
-          if (graceTimer) clearTimeout(graceTimer);
-          if (hardTimer) clearTimeout(hardTimer);
-          controller.abort();
-          resolveRace();
-        };
-
-        const hardTimer = setTimeout(() => {
-          _log('[ULTRAPLINIAN] Hard timeout reached, finishing race');
-          finish();
-        }, HARD_TIMEOUT_MS);
-
-        promises.forEach(p => p.then(result => {
-          if (resolved) return;
-          settledCount++;
-          if (result && result.success) successCountLocal++;
-
-          // Start grace period once we have enough successful results
-          if (successCountLocal >= MIN_RESULTS_FOR_GRACE && !graceTimer) {
-            _log(`[ULTRAPLINIAN] ${successCountLocal} successes, starting ${GRACE_PERIOD_MS}ms grace period`);
-            graceTimer = setTimeout(finish, GRACE_PERIOD_MS);
+      // ── Execution mode ────────────────────────────────────────────────
+      // Batch escalation (default): launch B models, score, and stop the moment
+      // a winner passes the early-stop gates OR a leader clears the threshold.
+      // Only escalate into deeper (more redundant) models on hard/refused
+      // queries. Bills ~5 models on a normal query instead of the whole tier.
+      // Set state.batchEscalation = false for the legacy full-parallel race.
+      if (state.batchEscalation !== false) {
+        const B = Math.max(2, state.escalationBatchSize || 5);
+        addThinkingLog(`!BATCH_MODE // waves of ${B}, early-exit on winner`, 'step');
+        for (let start = 0; start < raceEntries.length; start += B) {
+          if (earlyWinner || controller.signal.aborted) break;
+          const batch = raceEntries.slice(start, start + B);
+          const batchNo = Math.floor(start / B) + 1;
+          addThinkingLog(`!BATCH ${batchNo} >> ${batch.map(e => e.model.split('/')[1] || e.model).join(', ')}`, 'info');
+          batch.forEach(e => updateThinkingModel(e.model, 'running'));
+          await Promise.allSettled(batch.map((e, i) => runEntry(e, start + i)));
+          if (earlyWinner) break;
+          if (earlyStopEnabled && currentLeaderScore >= threshold) {
+            _log(`[ULTRAPLINIAN] Leader ${currentLeaderModel} @${currentLeaderScore} >= ${threshold} — halting escalation`);
+            addThinkingLog(`!SATISFIED >> leader ${currentLeaderScore}/${threshold}, stopping escalation`, 'success');
+            break;
           }
+        }
+        // Mark any models we never launched as skipped (kept the budget down).
+        const ranModels = new Set(allResults.map(r => r.model));
+        raceEntries.forEach(e => { if (!ranModels.has(e.model)) updateThinkingModel(e.model, 'pending', null, 'skipped'); });
+      } else {
+        // ── Legacy full-parallel race (A/B baseline) ──────────────────────
+        const promises = raceEntries.map((entry, idx) => runEntry(entry, idx));
+        _log('[ULTRAPLINIAN] Waiting for promises (with grace period)...');
+        const MIN_RESULTS_FOR_GRACE = Math.min(5, Math.max(2, Math.ceil(models.length * 0.5)));
+        const GRACE_PERIOD_MS = 5000;
+        const HARD_TIMEOUT_MS = 45000;
 
-          // All done — no need to wait
-          if (settledCount === models.length) finish();
-        }).catch(() => {
-          if (resolved) return;
-          settledCount++;
-          if (settledCount === models.length) finish();
-        }));
+        await new Promise((resolveRace) => {
+          let successCountLocal = 0;
+          let settledCount = 0;
+          let graceTimer = null;
+          let resolved = false;
 
-        if (models.length === 0) finish();
-      });
+          const finish = () => {
+            if (resolved) return;
+            resolved = true;
+            if (graceTimer) clearTimeout(graceTimer);
+            if (hardTimer) clearTimeout(hardTimer);
+            controller.abort();
+            resolveRace();
+          };
+
+          const hardTimer = setTimeout(() => {
+            _log('[ULTRAPLINIAN] Hard timeout reached, finishing race');
+            finish();
+          }, HARD_TIMEOUT_MS);
+
+          promises.forEach(p => p.then(result => {
+            if (resolved) return;
+            settledCount++;
+            if (result && result.success) successCountLocal++;
+
+            // Start grace period once we have enough successful results
+            if (successCountLocal >= MIN_RESULTS_FOR_GRACE && !graceTimer) {
+              _log(`[ULTRAPLINIAN] ${successCountLocal} successes, starting ${GRACE_PERIOD_MS}ms grace period`);
+              graceTimer = setTimeout(finish, GRACE_PERIOD_MS);
+            }
+
+            // All done — no need to wait
+            if (settledCount === models.length) finish();
+          }).catch(() => {
+            if (resolved) return;
+            settledCount++;
+            if (settledCount === models.length) finish();
+          }));
+
+          if (models.length === 0) finish();
+        });
+      }
 
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
       const successCount = allResults.filter(r => r.success).length;
@@ -16549,6 +16584,8 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       document.getElementById('localEnabled').checked = !!state.localEnabled;
       document.getElementById('localOnly').checked = !!state.localOnly;
       document.getElementById('smartLocalRouting').checked = state.smartLocalRouting !== false;
+      document.getElementById('batchEscalation').checked = state.batchEscalation !== false;
+      document.getElementById('escalationBatchSize').value = state.escalationBatchSize || 5;
       document.getElementById('localBaseUrlInput').value = state.localBaseUrl || 'http://localhost:11434/v1';
       document.getElementById('localModelsInput').value = state.localModels || '';
       document.getElementById('localApiKeyInput').value = state.localApiKey || '';
@@ -16715,6 +16752,8 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       state.localEnabled = document.getElementById('localEnabled').checked;
       state.localOnly = document.getElementById('localOnly').checked;
       state.smartLocalRouting = document.getElementById('smartLocalRouting').checked;
+      state.batchEscalation = document.getElementById('batchEscalation').checked;
+      state.escalationBatchSize = Math.min(20, Math.max(2, parseInt(document.getElementById('escalationBatchSize').value, 10) || 5));
       state.localBaseUrl = (document.getElementById('localBaseUrlInput').value || '').trim() || 'http://localhost:11434/v1';
       state.localModels = (document.getElementById('localModelsInput').value || '').trim();
       const newLocalKey = (document.getElementById('localApiKeyInput').value || '').trim();
