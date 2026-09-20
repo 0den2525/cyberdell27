@@ -19,7 +19,7 @@ G0DM0D3 is a fully open-source, privacy-transparent, multi-model chat interface 
 
 ## ✨ Features
 
-- 🧠 **Multi-Provider** — 60 listed OpenRouter models, up to 44 Venice models, or your own local models
+- 🧠 **Multi-Provider** — Direct Google Gemini, ChatGPT/OpenAI, Grok/xAI, and NVIDIA NIM, plus OpenRouter, Venice, or your own local models
 - 🔥 **GODMODE CLASSIC** — 5 battle-tested prompt + model combos racing in parallel to find the best response
 - 🌋 **ULTRAPLINIAN** — Multi-model evaluation engine across 5 tiers (12–60 OpenRouter models), with composite scoring
 - 🏠 **Local Models** — Run ULTRAPLINIAN on your own hardware through Ollama, LM Studio, llama.cpp, or vLLM
@@ -35,7 +35,7 @@ G0DM0D3 is a fully open-source, privacy-transparent, multi-model chat interface 
 
 ### Hosted
 
-Visit [godmod3.ai](https://godmod3.ai) — no install needed. Bring an OpenRouter key, a Venice key, connect a local OpenAI-compatible server, or configure more than one of those providers.
+Visit [godmod3.ai](https://godmod3.ai) — no install needed. Bring a Google AI Studio, OpenAI, xAI, or NVIDIA NIM key, an OpenRouter/Venice key, a local OpenAI-compatible server, or configure more than one provider.
 
 ### Self-Host
 
@@ -52,7 +52,11 @@ open index.html
 python3 -m http.server 8000
 ```
 
-Open it in your browser and configure OpenRouter, Venice, or local models in Settings. A static-only deployment can run the chat UI, but `/api/telemetry` will not publish metadata unless you also deploy `functions/api/telemetry.ts` on Cloudflare Pages and configure its Hugging Face variables.
+Open it in your browser and configure Google Gemini, ChatGPT/OpenAI, Grok/xAI, NVIDIA NIM, OpenRouter, Venice, or local models in Settings. Direct provider setup links are [Google AI Studio](https://aistudio.google.com/apikey), [OpenAI](https://platform.openai.com/api-keys), [xAI](https://console.x.ai/), and [NVIDIA NIM](https://build.nvidia.com/). Direct provider requests go browser-to-provider; keys are not sent to the G0DM0D3 server. Provider quotas, billing, model availability, and privacy terms apply. Direct Gemini uses the Generative Language API and currently supports text/system instructions; browser CORS or network policy changes can prevent direct calls. NVIDIA NIM requests have the same browser-origin limitation: if NVIDIA does not allow the local origin, a static browser-only deployment cannot call NIM directly, and this project does not proxy those requests.
+
+If NVIDIA's endpoint does not return browser CORS headers, use a user-controlled OpenAI-compatible local gateway (for example, a local LiteLLM deployment) configured with your NVIDIA key, then point **Settings → API Keys → Local Models** at that gateway. In that arrangement the key stays in your local gateway and is not sent to G0DM0D3 or NVIDIA through the browser page.
+
+A static-only deployment can run the chat UI, but `/api/telemetry` will not publish metadata unless you also deploy `functions/api/telemetry.ts` on Cloudflare Pages and configure its Hugging Face variables. Direct Gemini depends on the browser being able to reach Google's Generative Language API; restrictive network policies, browser extensions, or a future Google CORS change can prevent direct calls. The project does not proxy Gemini requests or expose the key server-side.
 
 ### Run with Local Models
 
@@ -119,7 +123,7 @@ G0DM0D3 has no account system. Its data flows are intentionally documented here 
 
 | Data | Where it goes |
 |---|---|
-| Prompts, images, conversation context, and responses | To the model providers you configure (OpenRouter, Venice, or a local server). Their own privacy and logging policies apply. |
+| Prompts, images, conversation context, and responses | To the model providers you configure (Google Gemini, OpenAI, xAI, NVIDIA NIM, OpenRouter, Venice, or a local server). Their own privacy and logging policies apply. |
 | Provider credentials | Stored in browser storage and sent to the corresponding provider or local endpoint for model requests. They are not included in G0DM0D3 telemetry. Browser storage is convenient, not a secure secret vault. |
 | Chat history and settings | Browser `localStorage`; there is no G0DM0D3 account or cloud history sync. |
 | App telemetry | On by default. It includes a random page-session ID, timestamps, model/mode/tier, timing and success data, scores, content lengths, pipeline configuration, conversation depth, image presence, and classification labels. It does **not intentionally include prompt text, response text, images, or API keys**. |
@@ -163,7 +167,7 @@ Hidden throughout G0DM0D3 are various easter eggs. Happy hunting!
 ## 🛠 Tech Stack
 
 - **Hosted architecture**: Single-file vanilla HTML/CSS/JS (`index.html`)
-- **Model transports**: [OpenRouter](https://openrouter.ai), Venice, and OpenAI-compatible localhost endpoints
+- **Model transports**: Direct Google Gemini, OpenAI, xAI, and NVIDIA NIM APIs, [OpenRouter](https://openrouter.ai), Venice, and OpenAI-compatible localhost endpoints
 - **Rendering**: Built-in message formatter in `index.html`
 - **State**: In-browser localStorage
 - **Telemetry**: Optional Cloudflare Pages Function publishing batches to Hugging Face

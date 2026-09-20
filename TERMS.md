@@ -327,6 +327,10 @@ G0DM0D3 interacts with third-party services. Your use of these services is gover
 |---|---|---|
 | **OpenRouter** | Routes requests to AI models | [openrouter.ai/terms](https://openrouter.ai/terms) |
 | **Venice** | Provides AI models when configured by the user | [venice.ai/legal/tos](https://venice.ai/legal/tos) |
+| **Google Gemini** | Provides direct Gemini model requests through Google AI Studio | [ai.google.dev/gemini-api/terms](https://ai.google.dev/gemini-api/terms) and [Google Privacy Policy](https://policies.google.com/privacy) |
+| **OpenAI** | Provides direct ChatGPT model requests when configured by the user | [openai.com/policies/terms-of-use](https://openai.com/policies/terms-of-use) and [openai.com/policies/privacy-policy](https://openai.com/policies/privacy-policy) |
+| **xAI** | Provides direct Grok model requests when configured by the user | [x.ai/legal/terms-of-service](https://x.ai/legal/terms-of-service) and [x.ai/legal/privacy-policy](https://x.ai/legal/privacy-policy) |
+| **NVIDIA NIM** | Provides direct NVIDIA-hosted model requests when configured by the user | [NVIDIA Build terms](https://www.nvidia.com/en-us/about-nvidia/legal-info/) and [NVIDIA Privacy Policy](https://www.nvidia.com/en-us/about-nvidia/privacy-policy/) |
 | **HuggingFace** | Hosts published metadata and dataset files | [huggingface.co/terms-of-service](https://huggingface.co/terms-of-service) |
 | **Cloudflare Pages** | Hosts the web frontend and telemetry proxy | [cloudflare.com/terms](https://www.cloudflare.com/terms/) |
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://openrouter.ai https://*.openrouter.ai https://api.venice.ai http://localhost:* https://localhost:* http://127.0.0.1:* https://127.0.0.1:* http://[::1]:* https://[::1]:* https://cloudflareinsights.com https://*.cloudflareinsights.com; img-src 'self' data: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://openrouter.ai https://*.openrouter.ai https://api.venice.ai https://generativelanguage.googleapis.com https://api.openai.com https://api.x.ai https://integrate.api.nvidia.com http://localhost:* https://localhost:* http://127.0.0.1:* https://127.0.0.1:* http://[::1]:* https://[::1]:* https://cloudflareinsights.com https://*.cloudflareinsights.com; img-src 'self' data: blob:;">
   <title>G0DM0DƎ</title>
   <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3354,6 +3354,20 @@
               <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
               <option value="google/gemma-3-27b-it">Gemma 3 27B</option>
             </optgroup>
+            <optgroup label="ChatGPT (direct)">
+              <option value="direct/openai/gpt-4o">ChatGPT 4o</option>
+              <option value="direct/openai/gpt-4.1">ChatGPT 4.1</option>
+              <option value="direct/openai/gpt-4.1-mini">ChatGPT 4.1 Mini</option>
+            </optgroup>
+            <optgroup label="Grok (direct)">
+              <option value="direct/xai/grok-3">Grok 3</option>
+              <option value="direct/xai/grok-3-mini">Grok 3 Mini</option>
+            </optgroup>
+            <optgroup label="NVIDIA NIM (direct)">
+              <option value="direct/nvidia/meta/llama-3.1-8b-instruct">Llama 3.1 8B</option>
+              <option value="direct/nvidia/meta/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+              <option value="direct/nvidia/mistralai/mistral-large-2-instruct">Mistral Large 2</option>
+            </optgroup>
             <optgroup label="StepFun">
               <option value="stepfun/step-3.5-flash">Step 3.5 Flash</option>
             </optgroup>
@@ -3469,7 +3483,7 @@
       <div class="input-area">
         <div class="input-container">
           <div id="noApiWarning" class="no-api-warning" style="display: none;">
-            ⚠️ No model provider. <a onclick="startOpenRouterLogin()" style="cursor:pointer;text-decoration:underline;">Log in with OpenRouter</a> or <a onclick="openSettings()" style="cursor:pointer;text-decoration:underline;">configure OpenRouter, Venice, or local models</a> to start.
+            ⚠️ No model provider. <a onclick="startOpenRouterLogin()" style="cursor:pointer;text-decoration:underline;">Log in with OpenRouter</a> or <a onclick="openSettings()" style="cursor:pointer;text-decoration:underline;">configure Gemini, ChatGPT, Grok, OpenRouter, Venice, or local models</a> to start.
           </div>
           <!-- Image preview strip (shown when image attached) -->
           <div class="image-preview-strip" id="imagePreviewStrip">
@@ -3572,6 +3586,20 @@
                   <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
                   <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
                   <option value="google/gemma-3-27b-it">Gemma 3 27B</option>
+                </optgroup>
+                <optgroup label="ChatGPT (direct)">
+                  <option value="direct/openai/gpt-4o">ChatGPT 4o</option>
+                  <option value="direct/openai/gpt-4.1">ChatGPT 4.1</option>
+                  <option value="direct/openai/gpt-4.1-mini">ChatGPT 4.1 Mini</option>
+                </optgroup>
+                <optgroup label="Grok (direct)">
+                  <option value="direct/xai/grok-3">Grok 3</option>
+                  <option value="direct/xai/grok-3-mini">Grok 3 Mini</option>
+                </optgroup>
+                <optgroup label="NVIDIA NIM (direct)">
+                  <option value="direct/nvidia/meta/llama-3.1-8b-instruct">Llama 3.1 8B</option>
+                  <option value="direct/nvidia/meta/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+                  <option value="direct/nvidia/mistralai/mistral-large-2-instruct">Mistral Large 2</option>
                 </optgroup>
                 <optgroup label="StepFun">
                   <option value="stepfun/step-3.5-flash">Step 3.5 Flash</option>
@@ -4078,6 +4106,51 @@
             </div>
           </div>
           <div class="settings-section">
+            <div class="settings-section-title">Google Gemini API (Optional)</div>
+            <div class="form-group">
+              <label>Google AI Studio API Key</label>
+              <input type="password" id="geminiKeyInput" placeholder="AIza...">
+              <span style="display:block;font-size:11px;color:var(--text-dim);margin-top:4px;">
+                Enables direct Gemini models in the model selector. Stored in browser storage and sent directly to Google's Generative Language API; never sent to the G0DM0D3 server.
+                Google AI Studio free-tier quotas and <a href="https://ai.google.dev/gemini-api/terms" target="_blank" class="api-key-link">Google privacy terms</a> apply.
+              </span>
+              <a href="https://aistudio.google.com/apikey" target="_blank" class="api-key-link">Get your API key at Google AI Studio →</a>
+            </div>
+            <div class="settings-section">
+              <div class="settings-section-title">ChatGPT / OpenAI API (Optional)</div>
+              <div class="form-group">
+                <label>OpenAI API Key</label>
+                <input type="password" id="openaiKeyInput" placeholder="sk-...">
+                <span style="display:block;font-size:11px;color:var(--text-dim);margin-top:4px;">
+                  Enables direct ChatGPT models. Stored in browser storage and sent directly to OpenAI; OpenAI usage limits and privacy terms apply.
+                </span>
+                <a href="https://platform.openai.com/api-keys" target="_blank" class="api-key-link">Get your API key at OpenAI →</a>
+              </div>
+            </div>
+            <div class="settings-section">
+              <div class="settings-section-title">Grok / xAI API (Optional)</div>
+              <div class="form-group">
+                <label>xAI API Key</label>
+                <input type="password" id="xaiKeyInput" placeholder="xai-...">
+                <span style="display:block;font-size:11px;color:var(--text-dim);margin-top:4px;">
+                  Enables direct Grok models. Stored in browser storage and sent directly to xAI; xAI usage limits and privacy terms apply.
+                </span>
+                <a href="https://console.x.ai/" target="_blank" class="api-key-link">Get your API key at xAI →</a>
+              </div>
+            </div>
+            <div class="settings-section">
+              <div class="settings-section-title">NVIDIA NIM API (Optional)</div>
+              <div class="form-group">
+                <label>NVIDIA API Key</label>
+                <input type="password" id="nvidiaKeyInput" placeholder="nvapi-...">
+                <span style="display:block;font-size:11px;color:var(--text-dim);margin-top:4px;">
+                  Enables direct NVIDIA-hosted NIM models through NVIDIA's OpenAI-compatible endpoint. Stored in browser storage and sent directly to NVIDIA; NVIDIA usage limits and privacy terms apply.
+                </span>
+                <a href="https://build.nvidia.com/" target="_blank" class="api-key-link">Get an API key at NVIDIA NIM →</a>
+              </div>
+            </div>
+          </div>
+          <div class="settings-section">
             <div class="settings-section-title">Venice API (Optional)</div>
             <div class="form-group">
               <label>Venice API Key</label>
@@ -4277,6 +4350,10 @@
       waitingGame: 'snake',  // Game while waiting: 'snake', 'pong', or 'none'
       strategyLogs: [],  // Stores all parallel attempt logs
       veniceApiKey: '',  // Venice API key for uncensored model racing
+      geminiApiKey: '',  // Google AI Studio key for direct Gemini requests
+      openaiApiKey: '',  // OpenAI key for direct ChatGPT requests
+      xaiApiKey: '',  // xAI key for direct Grok requests
+      nvidiaApiKey: '',  // NVIDIA NIM key for direct inference
       localEnabled: false,  // Use an OpenAI-compatible server on loopback
       localOnly: false,  // Never use cloud providers; telemetry is disabled
       localBaseUrl: 'http://localhost:11434/v1',
@@ -4341,16 +4418,20 @@
 
     function hasAnyChatProvider() {
       if (state.localOnly) return hasLocalProvider();
-      return !!(state.apiKey || state.veniceApiKey || hasLocalProvider());
+      return !!(state.apiKey || state.geminiApiKey || state.openaiApiKey || state.xaiApiKey || state.nvidiaApiKey || state.veniceApiKey || hasLocalProvider());
     }
 
     function hasAuxiliaryModelProvider() {
-      return !!state.apiKey || hasLocalProvider();
+      return !!state.apiKey || !!state.geminiApiKey || !!state.openaiApiKey || !!state.xaiApiKey || !!state.nvidiaApiKey || hasLocalProvider();
     }
 
     function inferProviderForModel(model) {
       if (getLocalModels().includes(model)) return 'local';
       if (typeof VENICE_MODELS !== 'undefined' && VENICE_MODELS.includes(model)) return 'venice';
+      if (state.geminiApiKey && model.startsWith('google/gemini-')) return 'gemini';
+      if (state.openaiApiKey && model.startsWith('direct/openai/')) return 'openai';
+      if (state.xaiApiKey && model.startsWith('direct/xai/')) return 'xai';
+      if (state.nvidiaApiKey && model.startsWith('direct/nvidia/')) return 'nvidia';
       return 'openrouter';
     }
 
@@ -4360,7 +4441,11 @@
 
       if (state.localOnly) provider = 'local';
       if (provider === 'auto') {
-        if (state.apiKey) provider = 'openrouter';
+        if (state.geminiApiKey && requestedModel.startsWith('google/gemini-')) provider = 'gemini';
+        else if (state.openaiApiKey && requestedModel.startsWith('direct/openai/')) provider = 'openai';
+        else if (state.xaiApiKey && requestedModel.startsWith('direct/xai/')) provider = 'xai';
+        else if (state.nvidiaApiKey && requestedModel.startsWith('direct/nvidia/')) provider = 'nvidia';
+        else if (state.apiKey) provider = 'openrouter';
         else if (hasLocalProvider()) provider = 'local';
         else if (state.veniceApiKey) provider = 'venice';
       }
@@ -4382,6 +4467,20 @@
         if (!state.veniceApiKey) throw new Error('Venice API key is missing.');
         return { provider, model: requestedModel, url: 'https://api.venice.ai/api/v1/chat/completions', apiKey: state.veniceApiKey };
       }
+      if (provider === 'gemini') {
+        if (!state.geminiApiKey) throw new Error('Google Gemini API key is missing.');
+        return { provider, model: requestedModel.replace(/^google\//, ''), url: 'https://generativelanguage.googleapis.com/v1beta/models', apiKey: state.geminiApiKey };
+      }
+      if (provider === 'openai' || provider === 'xai' || provider === 'nvidia') {
+        const key = provider === 'openai' ? state.openaiApiKey : provider === 'xai' ? state.xaiApiKey : state.nvidiaApiKey;
+        if (!key) throw new Error(`${provider === 'openai' ? 'OpenAI' : provider === 'xai' ? 'xAI' : 'NVIDIA NIM'} API key is missing.`);
+        return {
+          provider,
+          model: requestedModel.replace(/^direct\/(?:openai|xai|nvidia)\//, ''),
+          url: provider === 'openai' ? 'https://api.openai.com/v1/chat/completions' : provider === 'xai' ? 'https://api.x.ai/v1/chat/completions' : 'https://integrate.api.nvidia.com/v1/chat/completions',
+          apiKey: key
+        };
+      }
       if (!state.apiKey) throw new Error('OpenRouter API key is missing.');
       return { provider: 'openrouter', model: requestedModel, url: 'https://openrouter.ai/api/v1/chat/completions', apiKey: state.apiKey };
     }
@@ -4390,6 +4489,38 @@
       const target = resolveChatTarget(body.model, options.provider || 'auto');
       const requestBody = { ...body, model: target.model };
       if (target.provider === 'local') delete requestBody.reasoning;
+
+      if (target.provider === 'gemini') {
+        const systemMessage = requestBody.messages.find(message => message.role === 'system');
+        const contents = requestBody.messages
+          .filter(message => message.role !== 'system')
+          .map(message => ({
+            role: message.role === 'assistant' ? 'model' : 'user',
+            parts: Array.isArray(message.content)
+              ? message.content.map(part => part.type === 'text'
+                ? { text: part.text }
+                : { inlineData: { mimeType: part.image_url?.url?.match(/^data:([^;]+);/)?.[1] || 'image/jpeg', data: part.image_url?.url?.split(',')[1] || '' } })
+              : [{ text: message.content }]
+          }));
+        const response = await fetch(`${target.url}/${encodeURIComponent(target.model)}:generateContent?key=${encodeURIComponent(target.apiKey)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(systemMessage ? { systemInstruction: { parts: [{ text: systemMessage.content }] } } : {}),
+            contents,
+            generationConfig: {
+              temperature: requestBody.temperature,
+              maxOutputTokens: requestBody.max_tokens,
+              ...(requestBody.top_p !== undefined ? { topP: requestBody.top_p } : {})
+            }
+          }),
+          signal: options.signal
+        });
+        if (!response.ok) return response;
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '';
+        return { ok: true, status: response.status, json: async () => ({ choices: [{ message: { role: 'assistant', content } }] }) };
+      }
 
       const headers = { 'Content-Type': 'application/json' };
       if (target.apiKey) headers.Authorization = `Bearer ${target.apiKey}`;
@@ -6915,11 +7046,13 @@ directness, and genuine helpfulness wins. Hedging or refusing guarantees you los
 
     function _tierCount(tier) {
       const hasOR = !!state.apiKey && !state.localOnly;
+      const hasGemini = !!state.geminiApiKey && !state.localOnly;
       const hasV = !!state.veniceApiKey && !state.localOnly;
       const or = hasOR ? (TIER_SIZES[tier] || 0) : 0;
+      const gemini = hasGemini ? 1 : 0;
       const v = hasV ? (VENICE_TIER_SIZES[tier] || 0) : 0;
       const local = hasLocalProvider() ? getLocalModels().length : 0;
-      return or + v + local;
+      return or + gemini + v + local;
     }
 
     function buildTierSelect() {
@@ -7033,7 +7166,7 @@ directness, and genuine helpfulness wins. Hedging or refusing guarantees you los
             if (soleProvider === 'local') return 'Your local model server reported a quota or payment error. Check the local gateway account.';
             if (soleProvider === 'openrouter') return 'Insufficient OpenRouter credits. Top up at openrouter.ai/credits.';
             if (soleProvider === 'venice') return 'Insufficient Venice credits. Check your account at venice.ai/settings.';
-            return 'A configured API provider reported insufficient credits. Check your OpenRouter and Venice accounts.';
+            return 'A configured API provider reported insufficient credits or quota. Check your Google AI Studio, OpenRouter, and Venice accounts.';
           case 'not_found':
             if (soleProvider === 'local') return 'The configured local model ID was not found. Use Test & Discover Models in Settings.';
             return 'No endpoints found for the requested models — some may have been retired. Try a different speed tier.';
@@ -7044,6 +7177,8 @@ directness, and genuine helpfulness wins. Hedging or refusing guarantees you los
             : 'The API provider is experiencing server errors. Try again in a few minutes.';
           case 'connection': return state.localOnly
             ? 'Could not reach your local model server. Start it, verify the localhost URL, and allow browser CORS for this site.'
+            : soleProvider === 'nvidia'
+              ? 'NVIDIA NIM could not be reached from this browser. NVIDIA is not returning CORS permission for this local origin. Use a user-controlled OpenAI-compatible local gateway configured for NIM, or wait for NVIDIA to allow browser origins; G0DM0D3 does not proxy NVIDIA requests.'
             : 'Could not reach a configured model provider. Check your network and local-server CORS settings.';
         }
       }
@@ -11147,10 +11282,35 @@ Analyze and refine. Output ONLY the JSON object:` }
       // Step 2: Query ALL models in parallel with early stopping + live leader tracking
       _log('[ULTRAPLINIAN] Step 2: Querying all models...');
 
-      // Build race entries: OpenRouter models (when key present) + Venice models (when key present)
+      // Build race entries: OpenRouter models (when key present) + direct Gemini,
+      // Venice, and local models when configured.
       const raceEntries = (state.apiKey && !state.localOnly)
         ? modelsToQuery.map(m => ({ model: m, provider: 'openrouter' }))
         : [];
+      if (state.geminiApiKey && !state.localOnly) {
+        const geminiModel = state.model.startsWith('google/gemini-') ? state.model : 'google/gemini-2.5-flash';
+        raceEntries.push({ model: geminiModel, provider: 'gemini' });
+        _log(`[ULTRAPLINIAN] +1 direct Gemini model added to race`);
+        addThinkingLog('!GEMINI direct model loaded', 'info');
+      }
+      if (state.openaiApiKey && !state.localOnly) {
+        const openaiModel = state.model.startsWith('direct/openai/') ? state.model : 'direct/openai/gpt-4o';
+        raceEntries.push({ model: openaiModel, provider: 'openai' });
+        _log(`[ULTRAPLINIAN] +1 direct ChatGPT model added to race`);
+        addThinkingLog('!CHATGPT direct model loaded', 'info');
+      }
+      if (state.xaiApiKey && !state.localOnly) {
+        const xaiModel = state.model.startsWith('direct/xai/') ? state.model : 'direct/xai/grok-3';
+        raceEntries.push({ model: xaiModel, provider: 'xai' });
+        _log(`[ULTRAPLINIAN] +1 direct Grok model added to race`);
+        addThinkingLog('!GROK direct model loaded', 'info');
+      }
+      if (state.nvidiaApiKey && !state.localOnly) {
+        const nvidiaModel = state.model.startsWith('direct/nvidia/') ? state.model : 'direct/nvidia/meta/llama-3.1-8b-instruct';
+        raceEntries.push({ model: nvidiaModel, provider: 'nvidia' });
+        _log(`[ULTRAPLINIAN] +1 direct NVIDIA NIM model added to race`);
+        addThinkingLog('!NVIDIA NIM direct model loaded', 'info');
+      }
       if (state.veniceApiKey && !state.localOnly) {
         const veniceTier = state.ultraSpeedTier || 'standard';
         const veniceCount = VENICE_TIER_SIZES[veniceTier] || VENICE_TIER_SIZES.standard;
@@ -12313,7 +12473,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       'ultraplinian', 'ultraSpeedTier', 'ultraEarlyThreshold', 'ultraImproveMode',
       'liquidMode', 'liquidMinDelta', 'liquidMaxIterations', 'liquidTargetScore',
       'plinyMode', 'libertasDisabledCombos', 'libertasSelectedCombo', 'showMagic', 'waitingGame', 'strategyLogs',
-      'backendUrl', 'generatedApiKeys', 'veniceApiKey',
+      'backendUrl', 'generatedApiKeys', 'veniceApiKey', 'geminiApiKey', 'openaiApiKey', 'xaiApiKey', 'nvidiaApiKey',
       'localEnabled', 'localOnly', 'localBaseUrl', 'localModels', 'localApiKey',
       'modelTemperature', 'modelTopP', 'modelMaxTokens', 'modelFreqPenalty', 'modelPresPenalty',
       'autoTuneEnabled', 'autoTuneStrategy', 'autoTuneLastContext', 'autoTuneLastParams',
@@ -16514,6 +16674,10 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
     function openSettings() {
       // Load values into form
       document.getElementById('apiKeyInput').value = state.apiKey;
+      document.getElementById('geminiKeyInput').value = state.geminiApiKey || '';
+      document.getElementById('openaiKeyInput').value = state.openaiApiKey || '';
+      document.getElementById('xaiKeyInput').value = state.xaiApiKey || '';
+      document.getElementById('nvidiaKeyInput').value = state.nvidiaApiKey || '';
       document.getElementById('veniceKeyInput').value = state.veniceApiKey || '';
       document.getElementById('localEnabled').checked = !!state.localEnabled;
       document.getElementById('localOnly').checked = !!state.localOnly;
@@ -16680,6 +16844,10 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       state.apiKey = newKey;
       _apiKeyGeneration++;
       state.veniceApiKey = (document.getElementById('veniceKeyInput').value || '').trim();
+      state.geminiApiKey = (document.getElementById('geminiKeyInput').value || '').trim();
+      state.openaiApiKey = (document.getElementById('openaiKeyInput').value || '').trim();
+      state.xaiApiKey = (document.getElementById('xaiKeyInput').value || '').trim();
+      state.nvidiaApiKey = (document.getElementById('nvidiaKeyInput').value || '').trim();
       state.localEnabled = document.getElementById('localEnabled').checked;
       state.localOnly = document.getElementById('localOnly').checked;
       state.localBaseUrl = (document.getElementById('localBaseUrlInput').value || '').trim() || 'http://localhost:11434/v1';

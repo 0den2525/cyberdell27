@@ -212,13 +212,16 @@ function TabButton({
 }
 
 function APIKeyTab() {
-  const { apiKey, setApiKey, veniceApiKey, setVeniceApiKey } = useStore()
+  const { apiKey, setApiKey, veniceApiKey, setVeniceApiKey, geminiApiKey, setGeminiApiKey } = useStore()
   const [showKey, setShowKey] = useState(false)
   const [showVeniceKey, setShowVeniceKey] = useState(false)
+  const [showGeminiKey, setShowGeminiKey] = useState(false)
   const [localKey, setLocalKey] = useState(apiKey)
   const [localVeniceKey, setLocalVeniceKey] = useState(veniceApiKey)
+  const [localGeminiKey, setLocalGeminiKey] = useState(geminiApiKey)
   const [saved, setSaved] = useState(false)
   const [veniceSaved, setVeniceSaved] = useState(false)
+  const [geminiSaved, setGeminiSaved] = useState(false)
 
   const handleBlur = () => {
     if (localKey !== apiKey) {
@@ -233,6 +236,14 @@ function APIKeyTab() {
       setVeniceApiKey(localVeniceKey)
       setVeniceSaved(true)
       setTimeout(() => setVeniceSaved(false), 2000)
+    }
+  }
+
+  const handleGeminiBlur = () => {
+    if (localGeminiKey !== geminiApiKey) {
+      setGeminiApiKey(localGeminiKey)
+      setGeminiSaved(true)
+      setTimeout(() => setGeminiSaved(false), 2000)
     }
   }
 
@@ -277,6 +288,33 @@ function APIKeyTab() {
             aria-label={showKey ? 'Hide key' : 'Show key'}
           >
             {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t border-theme-primary/20 pt-6">
+        <h3 className="text-lg font-semibold mb-2">Google Gemini API Key <span className="text-xs font-normal theme-secondary">(optional)</span></h3>
+        <p className="text-sm theme-secondary mb-4">
+          Use Gemini directly through the Google AI Studio Generative Language API. The key stays in this browser and is sent directly to Google.
+          Google AI Studio free-tier quotas and{' '}
+          <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer" className="theme-primary underline">Google privacy terms</a>
+          {' '}apply.
+        </p>
+      </div>
+
+      <div className="relative">
+        <input
+          type={showGeminiKey ? 'text' : 'password'}
+          value={localGeminiKey}
+          onChange={(e) => setLocalGeminiKey(e.target.value)}
+          onBlur={handleGeminiBlur}
+          placeholder="AIza..."
+          className="w-full px-4 py-3 pr-20 bg-theme-dim border border-theme-primary rounded-lg focus:outline-none focus:glow-box"
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          {geminiSaved && <span className="flex items-center gap-1 text-xs text-green-500"><Check className="w-3 h-3" />Saved</span>}
+          <button onClick={() => setShowGeminiKey(!showGeminiKey)} className="p-1 hover:theme-primary transition-colors" aria-label={showGeminiKey ? 'Hide key' : 'Show key'}>
+            {showGeminiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
       </div>
@@ -2188,6 +2226,8 @@ function DataTab() {
       defaultModel: store.defaultModel,
       currentPersona: store.currentPersona,
       apiKey: store.apiKey,
+      veniceApiKey: store.veniceApiKey,
+      geminiApiKey: store.geminiApiKey,
       // Features
       autoTuneEnabled: store.autoTuneEnabled,
       autoTuneStrategy: store.autoTuneStrategy,
