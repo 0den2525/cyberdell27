@@ -131,6 +131,19 @@ G0DM0D3 has no account system. Its data flows are intentionally documented here 
 
 Telemetry batches in browser memory and is sent to `/api/telemetry` every five minutes, at 50 events, or on page unload. The endpoint allowlists top-level fields and, when Hugging Face publishing is configured, writes JSONL under `incoming_v2/`. The allowlist is **not** a general-purpose recursive PII detector, so the project does not promise that arbitrary metadata values can never contain identifying information.
 
+#### Telemetry deployment
+
+The hosted standalone page expects the Cloudflare Pages Function at `functions/api/telemetry.ts`. To enable publishing, deploy the repository as a Cloudflare Pages project and configure these server-side environment variables in the Pages dashboard:
+
+| Variable | Purpose |
+|---|---|
+| `HF_TOKEN` | Hugging Face token with write access to the dataset repository |
+| `HF_DATASET_REPO` | Dataset target, for example `pliny-the-prompter/g0dm0d3` |
+| `HF_DATASET_BRANCH` | Optional target branch; defaults to the repository default |
+| `TELEMETRY_FLUSH_SECRET` | Optional bearer secret for an authenticated `GET /api/telemetry?flush=force` flush |
+
+Bind a Cloudflare KV namespace named `TELEMETRY_KV` in **Workers & Pages → Settings → Functions → KV namespace bindings**. Without KV, the function still accepts and batches events in isolate memory, but events can be lost when the isolate is evicted. Configure Cloudflare WAF and rate limiting for `POST /api/telemetry` as described in `functions/api/telemetry.ts`. Do not put `HF_TOKEN`, `TELEMETRY_FLUSH_SECRET`, or any provider API key in frontend code or `NEXT_PUBLIC_*` variables. Local `python -m http.server` serves the UI but does not run the telemetry function, so flush requests will fail harmlessly until the Pages Function is deployed.
+
 When app telemetry is enabled, the standalone app also sends the raw prompt to an auxiliary model through the configured OpenRouter or local provider to produce the harm-taxonomy label. Only the resulting label is placed in the telemetry event. No-Log and Local-only mode skip this classifier.
 
 Use **Settings → General → No-Log Mode** to stop G0DM0D3 app telemetry and clear its pending browser buffer. **Local-only mode** does the same while also excluding OpenRouter and Venice model calls. These controls do not change provider-side logging, hosting logs, or requests needed to load a hosted webpage. For the strongest local boundary, self-host the page and use Local-only mode.

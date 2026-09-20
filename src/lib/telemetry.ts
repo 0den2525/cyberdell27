@@ -113,6 +113,8 @@ function getSessionId(): string {
  * Call this after every LLM request (both standard and ULTRAPLINIAN).
  */
 export function recordChatEvent(data: ChatTelemetryData): void {
+  if (data.no_log) return
+
   const event: TelemetryEvent = {
     type: 'chat_completion',
     timestamp: Date.now(),
@@ -132,6 +134,8 @@ export function recordChatEvent(data: ChatTelemetryData): void {
  * Record an arbitrary telemetry event. Fire-and-forget.
  */
 export function recordEvent(type: string, data: Record<string, unknown> = {}): void {
+  if (data.no_log === true) return
+
   eventBuffer.push({
     type,
     timestamp: Date.now(),
