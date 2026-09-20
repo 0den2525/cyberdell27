@@ -4103,6 +4103,13 @@
               <small style="color:#888;display:block;margin:-6px 0 12px;line-height:1.5;">
                 Local-only mode never calls OpenRouter or Venice and automatically disables telemetry. Core racing, TASTEMAKER, coaching, and Liquid refinement can all use your local models.
               </small>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                <input type="checkbox" id="smartLocalRouting" style="width:auto;">
+                <label for="smartLocalRouting" style="margin:0;">Smart local routing for sensitive queries</label>
+              </div>
+              <small style="color:#888;display:block;margin:-6px 0 12px;line-height:1.5;">
+                When a query is classified sensitive, skip the cloud race (aligned models reliably refuse it and burn tokens) and route straight to your uncensored local models. No effect unless a local model is configured. On by default.
+              </small>
               <label>Base URL</label>
               <input type="text" id="localBaseUrlInput" placeholder="http://localhost:11434/v1">
               <small style="color:#888;display:block;margin-top:4px;">OpenAI-compatible localhost endpoint. Examples: Ollama <code>:11434/v1</code>, LM Studio <code>:1234/v1</code>.</small>
@@ -4279,9 +4286,10 @@
       veniceApiKey: '',  // Venice API key for uncensored model racing
       localEnabled: false,  // Use an OpenAI-compatible server on loopback
       localOnly: false,  // Never use cloud providers; telemetry is disabled
-      localBaseUrl: 'http://localhost:11434/v1',
+      localBaseUrl: 'http://localhost:1234/v1',
       localModels: '',  // Comma-separated model IDs available from the local server
       localApiKey: '',  // Optional token for authenticated local servers
+      smartLocalRouting: true,  // Route sensitive queries to local uncensored models, skip cloud race
       backendUrl: '',  // G0DM0D3 API backend URL
       generatedApiKeys: [],  // User-generated API keys for backend
       // Universal model parameters
@@ -4419,6 +4427,7 @@
         const models = (Array.isArray(data?.data) ? data.data : [])
           .map(item => item?.id)
           .filter(id => typeof id === 'string' && id.trim())
+          .filter(id => !/embed|embedding|reranker|whisper|tts|clip|vision-encoder/i.test(id))
           .slice(0, 8);
         if (!models.length) throw new Error('Server returned no model IDs');
         document.getElementById('localModelsInput').value = models.join(', ');
@@ -6786,81 +6795,81 @@ directness, and genuine helpfulness wins. Hedging or refusing guarantees you los
       // ═══════════════════════════════════════════════════════════════════
       // ⚡ FAST TIER (models 1-12): Small, cheap, and fast — free-tier friendly
       // ═══════════════════════════════════════════════════════════════════
-      'google/gemini-2.5-flash',                          // #1  - Gemini 2.5 Flash, fast & efficient
-      'google/gemini-3.5-flash',                          // #2  - Gemini 3.5 Flash, fastest Gemini
-      'deepseek/deepseek-chat',                           // #3  - DeepSeek V3, fast & capable
-      'perplexity/sonar',                                 // #4  - Perplexity Sonar, web-grounded answers
+      'google/gemini-3.8-flash',                          // #1  - Gemini 3.8 Flash, newest fast Gemini
+      'google/gemini-3.5-flash-lite',                     // #2  - Gemini 3.5 Flash Lite, ultra-cheap
+      'deepseek/deepseek-v4.1-flash',                     // #3  - DeepSeek V4.1 Flash, fast frontier
+      'perplexity/sonar',                                 // #4  - Perplexity Sonar, WEB-GROUNDED (live info)
       'meta-llama/llama-3.1-8b-instruct',                 // #5  - Llama 3.1 8B, lightweight speed option
       'moonshotai/kimi-k2.5',                             // #6  - Kimi K2.5, native multimodal
       'openai/gpt-oss-20b',                               // #7  - GPT-OSS 20B, lightweight open-weight
-      'stepfun/step-3.5-flash',                           // #8  - Step 3.5 Flash, fast open MoE
+      'qwen/qwen3.8-flash',                               // #8  - Qwen 3.8 Flash, newest fast Qwen
       'google/gemini-3.1-flash-lite',                     // #9  - Gemini 3.1 Flash Lite, 1M ctx
       'mistralai/mistral-small-3.2-24b-instruct',         // #10 - Mistral Small 3.2, fast updated
       'nvidia/nemotron-3-nano-30b-a3b',                   // #11 - Nemotron 3 Nano, agentic MoE
-      'z-ai/glm-5-turbo',                                 // #12 - GLM 5 Turbo, fast agentic inference
+      'z-ai/glm-5.3-flashx',                              // #12 - GLM 5.3 FlashX, newest fast GLM
 
       // ═══════════════════════════════════════════════════════════════════
       // 🎯 STANDARD TIER (models 13-27): Mid-range workhorses
       // ═══════════════════════════════════════════════════════════════════
       'anthropic/claude-sonnet-5',                        // #13 - Claude Sonnet 5, latest workhorse
       'meta-llama/llama-4-scout',                         // #14 - Llama 4 Scout, efficient Meta model
-      'deepseek/deepseek-v3.2',                           // #15 - DeepSeek V3.2, GPT-5 class, dirt cheap
-      'nousresearch/hermes-3-llama-3.1-70b',              // #16 - Hermes 3 70B, classic uncensored
-      'openai/gpt-4o',                                    // #17 - GPT-4o, reliable workhorse
-      'google/gemini-2.5-pro',                            // #18 - Gemini 2.5 Pro, strong reasoning + coding
-      'anthropic/claude-sonnet-4',                        // #19 - Claude Sonnet 4, strong and reliable
-      'anthropic/claude-sonnet-4.6',                      // #20 - Claude Sonnet 4.6, best balance
-      'mistralai/mixtral-8x22b-instruct',                 // #21 - Mixtral 8x22B, European MoE powerhouse
+      'deepseek/deepseek-v4-flash',                       // #15 - DeepSeek V4 Flash, GPT-class, cheap
+      'perplexity/sonar-pro',                             // #16 - Perplexity Sonar Pro, WEB-GROUNDED (live info)
+      'openai/gpt-oss-120b',                              // #17 - GPT-OSS 120B, open-weight Apache 2.0
+      'google/gemini-3.6-flash',                          // #18 - Gemini 3.6 Flash, strong + fast
+      'anthropic/claude-sonnet-4.6',                      // #19 - Claude Sonnet 4.6, best balance
+      'x-ai/grok-4.5',                                    // #20 - Grok 4.5, xAI frontier
+      'minimax/minimax-m2.7',                             // #21 - MiniMax M2.7, strong agentic MoE
       'meta-llama/llama-3.3-70b-instruct',                // #22 - Llama 3.3 70B, solid all-rounder
-      'qwen/qwen-2.5-72b-instruct',                      // #23 - Qwen 2.5 72B, strong open model
-      'nousresearch/hermes-4-70b',                        // #24 - Hermes 4 70B, uncensored champion
+      'qwen/qwen3-235b-a22b-2507',                        // #23 - Qwen3 235B (2507), strong open MoE
+      'moonshotai/kimi-k2.6',                             // #24 - Kimi K2.6, updated 1T MoE
       'mistralai/mistral-medium-3.1',                     // #25 - Mistral Medium 3.1, balanced
-      'google/gemini-3-flash-preview',                    // #26 - Gemini 3 Flash, fast agentic model
-      'google/gemma-3-27b-it',                            // #27 - Gemma 3 27B, multimodal open model
+      'google/gemini-3.7-flash',                          // #26 - Gemini 3.7 Flash, fast agentic
+      'google/gemma-4-31b-it',                            // #27 - Gemma 4 31B, newest open multimodal
 
       // ═══════════════════════════════════════════════════════════════════
       // 🧠 SMART TIER (models 28-41): Flagships and heavy hitters
       // ═══════════════════════════════════════════════════════════════════
-      'openai/gpt-5',                                     // #28 - GPT-5, OpenAI flagship
-      'openai/gpt-5.3-chat',                              // #29 - GPT-5.3 Chat, latest non-reasoning
-      'openai/gpt-5.5',                                   // #30 - GPT-5.5, next-gen flagship
-      'qwen/qwen3.5-plus-02-15',                          // #31 - Qwen 3.5 Plus, latest Qwen flagship
+      'openai/gpt-6-astra',                               // #28 - GPT-6 Astra, newest OpenAI flagship
+      'openai/gpt-5.6-terra',                             // #29 - GPT-5.6 Terra, specialist flagship
+      'openai/gpt-5.6-sol',                               // #30 - GPT-5.6 Sol, specialist flagship
+      'qwen/qwen3.8-max-0902',                            // #31 - Qwen 3.8 Max, newest Qwen frontier
       'qwen/qwen3.7-max',                                 // #32 - Qwen 3.7 Max, frontier Qwen
-      'z-ai/glm-5',                                       // #33 - GLM-5, strong coding + agent tasks
-      'z-ai/glm-5.2',                                     // #34 - GLM-5.2, latest GLM flagship
-      'openai/gpt-5.2',                                   // #35 - GPT-5.2, strong benchmark performer
-      'anthropic/claude-opus-4.6',                        // #36 - Claude Opus 4.6, Anthropic flagship
-      'anthropic/claude-opus-4.8',                        // #37 - Claude Opus 4.8, latest Opus
-      'anthropic/claude-fable-5',                         // #38 - Claude Fable 5, creative + narrative
-      'openai/gpt-oss-120b',                              // #39 - GPT-OSS 120B, open-weight Apache 2.0
+      'z-ai/glm-5.3',                                     // #33 - GLM-5.3, newest GLM flagship
+      'z-ai/glm-5.2',                                     // #34 - GLM-5.2, strong coding + agent
+      'openai/gpt-5.6-luna',                              // #35 - GPT-5.6 Luna, specialist flagship
+      'anthropic/claude-opus-4.8',                        // #36 - Claude Opus 4.8, Anthropic flagship
+      'anthropic/claude-opus-5',                          // #37 - Claude Opus 5, newest Opus
+      'anthropic/claude-fable-5.1',                       // #38 - Claude Fable 5.1, creative + narrative
+      'deepseek/deepseek-v4-pro',                         // #39 - DeepSeek V4 Pro, frontier reasoning
       'deepseek/deepseek-r1',                             // #40 - DeepSeek R1, strong reasoning
       'nvidia/nemotron-3-super-120b-a12b',                // #41 - Nemotron 3 Super, hybrid Mamba 1M ctx
 
       // ═══════════════════════════════════════════════════════════════════
       // ⚔️ POWER TIER (models 42-53): Frontier, cutting-edge
       // ═══════════════════════════════════════════════════════════════════
-      'x-ai/grok-4.5',                                    // #42 - Grok 4.5, frontier xAI flagship
-      'openai/gpt-5.4',                                   // #43 - GPT-5.4, unified Codex+GPT, 1M ctx
-      'openai/gpt-5.5-pro',                               // #44 - GPT-5.5 Pro, pro-tier next-gen
-      'openai/gpt-5.6-luna',                              // #45 - GPT-5.6 Luna, specialist model
-      'z-ai/glm-4.7',                                     // #46 - GLM-4.7, strong coding
+      'x-ai/grok-4.6',                                    // #42 - Grok 4.6, newest xAI flagship
+      'openai/gpt-6-astra-pro',                           // #43 - GPT-6 Astra Pro, pro-tier flagship
+      'openai/gpt-5.6-terra-pro',                         // #44 - GPT-5.6 Terra Pro, pro specialist
+      'openai/gpt-5.6-sol-pro',                           // #45 - GPT-5.6 Sol Pro, pro specialist
+      'z-ai/glm-5.3-flash',                               // #46 - GLM-5.3 Flash, fast frontier coding
       'meta-llama/llama-4-maverick',                      // #47 - Llama 4 Maverick, latest Meta
-      'qwen/qwen3-235b-a22b',                             // #48 - Qwen3 235B, powerful MoE
-      'qwen/qwen3-coder',                                 // #49 - Qwen3 Coder, frontier coding MoE
-      'minimax/minimax-m2.5',                             // #50 - MiniMax M2.5, SWE-Bench 80.2%
-      'mistralai/mistral-large-2512',                     // #51 - Mistral Large 3, 675B MoE
+      'qwen/qwen3.8-2.4t-a95b',                           // #48 - Qwen3.8 2.4T, giant frontier MoE
+      'qwen/qwen3-coder-next',                            // #49 - Qwen3 Coder Next, frontier coding MoE
+      'minimax/minimax-m3',                               // #50 - MiniMax M3, newest frontier MoE
+      'mistralai/mistral-large',                          // #51 - Mistral Large, current flagship
       'google/gemini-3.1-pro-preview',                    // #52 - Gemini 3.1 Pro, frontier SWE + reasoning
-      'moonshotai/kimi-k2',                               // #53 - Kimi K2, 1T MoE instruct
+      'moonshotai/kimi-k3',                               // #53 - Kimi K3, newest Moonshot flagship
 
       // ═══════════════════════════════════════════════════════════════════
       // 🔱 ULTRA TIER (models 54-60): Maximum coverage
       // ═══════════════════════════════════════════════════════════════════
-      'anthropic/claude-opus-4.8-fast',                   // #54 - Claude Opus 4.8 Fast, high-throughput
-      'anthropic/claude-opus-4',                          // #55 - Claude Opus 4, previous flagship
+      'openai/gpt-5.6-luna-pro',                          // #54 - GPT-5.6 Luna Pro, pro specialist
+      'anthropic/claude-opus-4.7',                        // #55 - Claude Opus 4.7, prior flagship
       'nousresearch/hermes-4-405b',                       // #56 - Hermes 4 405B, uncensored
       'nousresearch/hermes-3-llama-3.1-405b',             // #57 - Hermes 3 405B, uncensored legacy
-      'openai/gpt-5.6-terra',                             // #58 - GPT-5.6 Terra, specialist
-      'openai/gpt-5.6-sol',                               // #59 - GPT-5.6 Sol, specialist
+      'perplexity/sonar-reasoning-pro',                   // #58 - Sonar Reasoning Pro, WEB-GROUNDED + reasoning
+      'cognitivecomputations/dolphin-mistral-24b-venice-edition', // #59 - Dolphin Mistral 24B, uncensored
       'mistralai/codestral-2508'                          // #60 - Codestral, 256K ctx coding
     ];
 
@@ -11147,11 +11156,33 @@ Analyze and refine. Output ONLY the JSON object:` }
       // Step 2: Query ALL models in parallel with early stopping + live leader tracking
       _log('[ULTRAPLINIAN] Step 2: Querying all models...');
 
+      // ── Smart local routing ──────────────────────────────────────────
+      // Aligned frontier models reliably REFUSE sensitive queries, so racing
+      // them just burns tokens on refusals. When the query is flagged
+      // sensitive AND uncensored local weights are available, skip the cloud
+      // fan-out and route to local only. Default on; disable with
+      // state.smartLocalRouting = false.
+      // Prefer the LLM classifier's judgment (more accurate, euphemism-aware);
+      // fall back to the fast regex if classification is unavailable.
+      const queryIsSensitive = (classification && typeof classification.sensitive === 'boolean')
+        ? classification.sensitive
+        : isSensitiveQueryRegex(userQuery);
+      const routeSensitiveToLocal =
+        state.smartLocalRouting !== false &&
+        hasLocalProvider() &&
+        !state.localOnly &&
+        queryIsSensitive;
+      if (routeSensitiveToLocal) {
+        _log('[ULTRAPLINIAN] Smart route: sensitive query → local uncensored only, skipping cloud race');
+        addThinkingLog('!SMART_ROUTE sensitive → local uncensored (cloud race skipped)', 'step');
+      }
+
       // Build race entries: OpenRouter models (when key present) + Venice models (when key present)
-      const raceEntries = (state.apiKey && !state.localOnly)
+      const useCloud = !state.localOnly && !routeSensitiveToLocal;
+      const raceEntries = (state.apiKey && useCloud)
         ? modelsToQuery.map(m => ({ model: m, provider: 'openrouter' }))
         : [];
-      if (state.veniceApiKey && !state.localOnly) {
+      if (state.veniceApiKey && useCloud) {
         const veniceTier = state.ultraSpeedTier || 'standard';
         const veniceCount = VENICE_TIER_SIZES[veniceTier] || VENICE_TIER_SIZES.standard;
         const veniceSlice = VENICE_MODELS.slice(0, veniceCount);
@@ -16517,6 +16548,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       document.getElementById('veniceKeyInput').value = state.veniceApiKey || '';
       document.getElementById('localEnabled').checked = !!state.localEnabled;
       document.getElementById('localOnly').checked = !!state.localOnly;
+      document.getElementById('smartLocalRouting').checked = state.smartLocalRouting !== false;
       document.getElementById('localBaseUrlInput').value = state.localBaseUrl || 'http://localhost:11434/v1';
       document.getElementById('localModelsInput').value = state.localModels || '';
       document.getElementById('localApiKeyInput').value = state.localApiKey || '';
@@ -16682,6 +16714,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       state.veniceApiKey = (document.getElementById('veniceKeyInput').value || '').trim();
       state.localEnabled = document.getElementById('localEnabled').checked;
       state.localOnly = document.getElementById('localOnly').checked;
+      state.smartLocalRouting = document.getElementById('smartLocalRouting').checked;
       state.localBaseUrl = (document.getElementById('localBaseUrlInput').value || '').trim() || 'http://localhost:11434/v1';
       state.localModels = (document.getElementById('localModelsInput').value || '').trim();
       const newLocalKey = (document.getElementById('localApiKeyInput').value || '').trim();
