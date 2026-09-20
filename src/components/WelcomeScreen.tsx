@@ -8,13 +8,13 @@ interface WelcomeScreenProps {
 }
 
 export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps) {
-  const { apiKey, ultraplinianApiUrl, ultraplinianApiKey, createConversation, theme } = useStore()
+  const { apiKey, geminiApiKey, ultraplinianApiUrl, ultraplinianApiKey, createConversation, theme } = useStore()
 
   // Proxy mode: API server available, no personal key needed
-  const proxyMode = !apiKey && !!ultraplinianApiUrl && !!ultraplinianApiKey
+  const proxyMode = !apiKey && !geminiApiKey && !!ultraplinianApiUrl && !!ultraplinianApiKey
 
   const handleStart = () => {
-    if (apiKey || proxyMode) {
+    if (apiKey || geminiApiKey || proxyMode) {
       createConversation()
     } else {
       onOpenSettings()
@@ -82,7 +82,7 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps) {
 
       {/* CTA */}
       <div className="flex flex-col items-center gap-4">
-        {apiKey || proxyMode ? (
+        {apiKey || geminiApiKey || proxyMode ? (
           <button
             onClick={handleStart}
             className="flex items-center gap-2 px-6 py-3

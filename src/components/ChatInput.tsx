@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { useStore } from '@/store'
-import { sendMessage, sendMessageViaProxy, streamUltraplinian, streamConsortium } from '@/lib/openrouter'
+import { sendMessage, sendMessageViaGemini, sendMessageViaProxy, streamUltraplinian, streamConsortium } from '@/lib/openrouter'
 import { recordChatEvent } from '@/lib/telemetry'
 import { classifyPrompt } from '@/lib/classify'
 import { classifyWithLLM } from '@/lib/classify-llm'
@@ -40,6 +40,7 @@ export function ChatInput() {
     liquidMinDelta,
     incrementPromptsTried,
     veniceApiKey,
+    geminiApiKey,
     // ULTRAPLINIAN
     ultraplinianEnabled,
     ultraplinianTier,
@@ -138,7 +139,7 @@ export function ChatInput() {
 
   const handleSubmit = async () => {
     if (!input.trim() || !currentConversationId || isStreaming) return
-    if (!apiKey && !proxyMode) return
+    if (!apiKey && !geminiApiKey && !proxyMode) return
 
     const originalMessage = input.trim()
     setInput('')
@@ -472,7 +473,18 @@ export function ChatInput() {
                 repetition_penalty: tuneResult.params.repetition_penalty,
               } : {}),
             })
-          : await sendMessage({
+          : model.startsWith('google/gemini-') && geminiApiKey
+            ? await sendMessageViaGemini({
+              messages,
+              model,
+              apiKey: geminiApiKey,
+              signal: abortControllerRef.current.signal,
+              ...(tuneResult ? {
+                temperature: tuneResult.params.temperature,
+                top_p: tuneResult.params.top_p,
+              } : {})
+            })
+            : await sendMessage({
               messages,
               model,
               apiKey,
@@ -764,8 +776,8 @@ export function ChatInput() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={(apiKey || proxyMode) ? "Enter your message... (Shift+Enter for new line)" : "Set your API key in Settings first"}
-              disabled={(!apiKey && !proxyMode) || isStreaming}
+              placeholder={(apiKey || geminiApiKey || proxyMode) ? "Enter your message... (Shift+Enter for new line)" : "Set your API key in Settings first"}
+              disabled={(!apiKey && !geminiApiKey && !proxyMode) || isStreaming}
               rows={1}
               className="w-full px-4 py-3 pr-12 bg-theme-bg border border-theme-primary rounded-lg
                 resize-none focus:outline-none focus:glow-box
@@ -795,7 +807,7 @@ export function ChatInput() {
           ) : (
             <button
               onClick={handleSubmit}
-              disabled={!input.trim() || (!apiKey && !proxyMode)}
+              disabled={!input.trim() || (!apiKey && !geminiApiKey && !proxyMode)}
               className="p-3 bg-theme-accent border border-theme-primary rounded-lg
                 hover:glow-box transition-all
                 disabled:opacity-50 disabled:cursor-not-allowed"

@@ -5,6 +5,7 @@
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const VENICE_API_URL = 'https://api.venice.ai/api/v1/chat/completions'
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 /**
  * Maps API error responses to specific, actionable user-facing messages.
@@ -165,6 +166,57 @@ export async function sendMessage({
   }
 
   return data.choices[0].message.content
+}
+
+interface GeminiMessageOptions extends Omit<SendMessageOptions, 'apiKey'> {
+  apiKey: string
+}
+
+export async function sendMessageViaGemini({
+  messages,
+  model,
+  apiKey,
+  signal,
+  temperature = 0.7,
+  maxTokens = 4096,
+  top_p,
+}: GeminiMessageOptions): Promise<string> {
+  if (!apiKey) {
+    throw new Error('No Google Gemini API key set. Go to Settings → API Key and enter a key from [aistudio.google.com/apikey].')
+  }
+
+  const systemMessage = messages.find(message => message.role === 'system')
+  const contents = messages
+    .filter(message => message.role !== 'system')
+    .map(message => ({
+      role: message.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: message.content }],
+    }))
+
+  const response = await fetch(`${GEMINI_API_URL}/${encodeURIComponent(model.replace(/^google\//, ''))}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...(systemMessage ? { systemInstruction: { parts: [{ text: systemMessage.content }] } } : {}),
+      contents,
+      generationConfig: {
+        temperature,
+        maxOutputTokens: maxTokens,
+        ...(top_p !== undefined ? { topP: top_p } : {}),
+      },
+    }),
+    signal,
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: { message?: string } }
+    throw new Error(errorData.error?.message || `Google Gemini API error (${response.status})`)
+  }
+
+  const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+  const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || ''
+  if (!text) throw new Error('No response from Google Gemini model')
+  return text
 }
 
 /**

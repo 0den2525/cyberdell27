@@ -16,6 +16,7 @@ export default function Home() {
     showSettings,
     setShowSettings,
     apiKey,
+    geminiApiKey,
     ultraplinianApiUrl,
     ultraplinianApiKey,
     isHydrated
@@ -30,7 +31,7 @@ export default function Home() {
   useApiAutoDetect()
 
   // Proxy mode: API server available but no personal OpenRouter key
-  const proxyMode = !apiKey && !!ultraplinianApiUrl && !!ultraplinianApiKey
+  const proxyMode = !apiKey && !geminiApiKey && !!ultraplinianApiUrl && !!ultraplinianApiKey
 
   // Sync theme class to <html> so CSS variables (scrollbar colours, etc.)
   // cascade to elements outside <main>
@@ -66,7 +67,7 @@ export default function Home() {
 
       {/* Main content */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-0' : 'ml-0'}`}>
-        {(!apiKey && !proxyMode) || !currentConversation ? (
+        {(!apiKey && !geminiApiKey && !proxyMode) || !currentConversation ? (
           <WelcomeScreen onOpenSettings={() => setShowSettings(true)} />
         ) : (
           <ChatArea />

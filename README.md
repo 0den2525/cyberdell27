@@ -19,7 +19,7 @@ G0DM0D3 is a fully open-source, privacy-transparent, multi-model chat interface 
 
 ## ✨ Features
 
-- 🧠 **Multi-Provider** — 60 listed OpenRouter models, up to 44 Venice models, or your own local models
+- 🧠 **Multi-Provider** — Direct Google Gemini, ChatGPT/OpenAI, Grok/xAI, and NVIDIA NIM, plus OpenRouter, Venice, or your own local models
 - 🔥 **GODMODE CLASSIC** — 5 battle-tested prompt + model combos racing in parallel to find the best response
 - 🌋 **ULTRAPLINIAN** — Multi-model evaluation engine across 5 tiers (12–60 OpenRouter models), with composite scoring
 - 🏠 **Local Models** — Run ULTRAPLINIAN on your own hardware through Ollama, LM Studio, llama.cpp, or vLLM
@@ -35,7 +35,7 @@ G0DM0D3 is a fully open-source, privacy-transparent, multi-model chat interface 
 
 ### Hosted
 
-Visit [godmod3.ai](https://godmod3.ai) — no install needed. Bring an OpenRouter key, a Venice key, connect a local OpenAI-compatible server, or configure more than one of those providers.
+Visit [godmod3.ai](https://godmod3.ai) — no install needed. Bring a Google AI Studio, OpenAI, xAI, or NVIDIA NIM key, an OpenRouter/Venice key, a local OpenAI-compatible server, or configure more than one provider.
 
 ### Self-Host
 
@@ -52,7 +52,23 @@ open index.html
 python3 -m http.server 8000
 ```
 
-Open it in your browser and configure OpenRouter, Venice, or local models in Settings. A static-only deployment can run the chat UI, but `/api/telemetry` will not publish metadata unless you also deploy `functions/api/telemetry.ts` on Cloudflare Pages and configure its Hugging Face variables.
+Open it in your browser and configure Google Gemini, ChatGPT/OpenAI, Grok/xAI, NVIDIA NIM, OpenRouter, Venice, or local models in Settings. Direct provider setup links are [Google AI Studio](https://aistudio.google.com/apikey), [OpenAI](https://platform.openai.com/api-keys), [xAI](https://console.x.ai/), and [NVIDIA NIM](https://build.nvidia.com/). Direct provider requests go browser-to-provider; keys are not sent to the G0DM0D3 server. Provider quotas, billing, model availability, and privacy terms apply. Direct Gemini uses the Generative Language API and currently supports text/system instructions; browser CORS or network policy changes can prevent direct calls. NVIDIA NIM requests have the same browser-origin limitation: if NVIDIA does not allow the local origin, a static browser-only deployment cannot call NIM directly, and this project does not proxy those requests.
+
+If NVIDIA's endpoint does not return browser CORS headers, enable **Route NVIDIA models through OmniRoute gateway** under the NVIDIA settings, then point **Settings → API Keys → Local Models** at your user-controlled OmniRoute OpenAI-compatible `/v1` endpoint and enter the gateway key there. In that arrangement G0DM0D3 sends the model request to OmniRoute; the NVIDIA key is not sent by the browser page or stored in G0DM0D3.
+
+Example with LiteLLM:
+
+```powershell
+pip install litellm
+$env:NVIDIA_NIM_API_KEY = "paste-your-replacement-key-here"
+litellm --model nvidia_nim/meta/llama-3.1-8b-instruct --port 4000
+```
+
+Then enable the OmniRoute toggle, set **OmniRoute / Local Base URL** to `http://localhost:4000/v1`, set **OmniRoute / Local API Key** to the gateway key if configured, click **Test & Discover Models**, and select the discovered model. Keep the gateway bound to localhost when possible and never commit the NVIDIA key or place it in a `NEXT_PUBLIC_*` variable.
+
+The **OmniRoute / Custom AI Provider** section can also be used for any OpenAI-compatible service. Enter a provider name, its `/v1` base URL, an optional gateway key, and comma-separated model IDs. The models are added to the Default Model selector under that provider name and route directly from the browser to the configured endpoint. The endpoint must allow browser CORS; credentials are stored locally in encrypted browser storage and are never sent to the G0DM0D3 backend.
+
+A static-only deployment can run the chat UI, but `/api/telemetry` will not publish metadata unless you also deploy `functions/api/telemetry.ts` on Cloudflare Pages and configure its Hugging Face variables. Direct Gemini depends on the browser being able to reach Google's Generative Language API; restrictive network policies, browser extensions, or a future Google CORS change can prevent direct calls. The project does not proxy Gemini requests or expose the key server-side.
 
 ### Run with Local Models
 
@@ -119,13 +135,26 @@ G0DM0D3 has no account system. Its data flows are intentionally documented here 
 
 | Data | Where it goes |
 |---|---|
-| Prompts, images, conversation context, and responses | To the model providers you configure (OpenRouter, Venice, or a local server). Their own privacy and logging policies apply. |
+| Prompts, images, conversation context, and responses | To the model providers you configure (Google Gemini, OpenAI, xAI, NVIDIA NIM, OpenRouter, Venice, or a local server). Their own privacy and logging policies apply. |
 | Provider credentials | Stored in browser storage and sent to the corresponding provider or local endpoint for model requests. They are not included in G0DM0D3 telemetry. Browser storage is convenient, not a secure secret vault. |
 | Chat history and settings | Browser `localStorage`; there is no G0DM0D3 account or cloud history sync. |
 | App telemetry | On by default. It includes a random page-session ID, timestamps, model/mode/tier, timing and success data, scores, content lengths, pipeline configuration, conversation depth, image presence, and classification labels. It does **not intentionally include prompt text, response text, images, or API keys**. |
 | Network address | The Cloudflare telemetry function temporarily reads the request IP for an in-memory rate limit. The IP is not added to the telemetry event or Hugging Face JSONL by G0DM0D3. Cloudflare, model providers, and other hosting infrastructure may keep their own network logs. |
 
 Telemetry batches in browser memory and is sent to `/api/telemetry` every five minutes, at 50 events, or on page unload. The endpoint allowlists top-level fields and, when Hugging Face publishing is configured, writes JSONL under `incoming_v2/`. The allowlist is **not** a general-purpose recursive PII detector, so the project does not promise that arbitrary metadata values can never contain identifying information.
+
+#### Telemetry deployment
+
+The hosted standalone page expects the Cloudflare Pages Function at `functions/api/telemetry.ts`. To enable publishing, deploy the repository as a Cloudflare Pages project and configure these server-side environment variables in the Pages dashboard:
+
+| Variable | Purpose |
+|---|---|
+| `HF_TOKEN` | Hugging Face token with write access to the dataset repository |
+| `HF_DATASET_REPO` | Dataset target, for example `pliny-the-prompter/g0dm0d3` |
+| `HF_DATASET_BRANCH` | Optional target branch; defaults to the repository default |
+| `TELEMETRY_FLUSH_SECRET` | Optional bearer secret for an authenticated `GET /api/telemetry?flush=force` flush |
+
+Bind a Cloudflare KV namespace named `TELEMETRY_KV` in **Workers & Pages → Settings → Functions → KV namespace bindings**. Without KV, the function still accepts and batches events in isolate memory, but events can be lost when the isolate is evicted. Configure Cloudflare WAF and rate limiting for `POST /api/telemetry` as described in `functions/api/telemetry.ts`. Do not put `HF_TOKEN`, `TELEMETRY_FLUSH_SECRET`, or any provider API key in frontend code or `NEXT_PUBLIC_*` variables. Local `python -m http.server` serves the UI but does not run the telemetry function, so flush requests will fail harmlessly until the Pages Function is deployed.
 
 When app telemetry is enabled, the standalone app also sends the raw prompt to an auxiliary model through the configured OpenRouter or local provider to produce the harm-taxonomy label. Only the resulting label is placed in the telemetry event. No-Log and Local-only mode skip this classifier.
 
@@ -163,7 +192,7 @@ Hidden throughout G0DM0D3 are various easter eggs. Happy hunting!
 ## 🛠 Tech Stack
 
 - **Hosted architecture**: Single-file vanilla HTML/CSS/JS (`index.html`)
-- **Model transports**: [OpenRouter](https://openrouter.ai), Venice, and OpenAI-compatible localhost endpoints
+- **Model transports**: Direct Google Gemini, OpenAI, xAI, and NVIDIA NIM APIs, [OpenRouter](https://openrouter.ai), Venice, and OpenAI-compatible localhost endpoints
 - **Rendering**: Built-in message formatter in `index.html`
 - **State**: In-browser localStorage
 - **Telemetry**: Optional Cloudflare Pages Function publishing batches to Hugging Face
