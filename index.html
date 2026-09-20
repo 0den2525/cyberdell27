@@ -4147,6 +4147,13 @@
                   Enables direct NVIDIA-hosted NIM models through NVIDIA's OpenAI-compatible endpoint. Stored in browser storage and sent directly to NVIDIA; NVIDIA usage limits and privacy terms apply.
                 </span>
                 <a href="https://build.nvidia.com/" target="_blank" class="api-key-link">Get an API key at NVIDIA NIM →</a>
+                <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+                  <input type="checkbox" id="nvidiaViaOmniRoute" style="width:auto;">
+                  <span>Route NVIDIA models through OmniRoute gateway</span>
+                </label>
+                <small style="display:block;font-size:11px;color:var(--text-dim);margin-top:4px;">
+                  Uses the OpenAI-compatible Base URL and API key configured below. The NVIDIA key is not sent when this is enabled.
+                </small>
               </div>
             </div>
           </div>
@@ -4176,9 +4183,9 @@
               <small style="color:#888;display:block;margin:-6px 0 12px;line-height:1.5;">
                 Local-only mode never calls OpenRouter or Venice and automatically disables telemetry. Core racing, TASTEMAKER, coaching, and Liquid refinement can all use your local models.
               </small>
-              <label>Base URL</label>
+              <label>OmniRoute / Local Base URL</label>
               <input type="text" id="localBaseUrlInput" placeholder="http://localhost:11434/v1">
-              <small style="color:#888;display:block;margin-top:4px;">OpenAI-compatible localhost endpoint. Examples: Ollama <code>:11434/v1</code>, LM Studio <code>:1234/v1</code>.</small>
+              <small style="color:#888;display:block;margin-top:4px;">OpenAI-compatible endpoint. For OmniRoute, use its <code>/v1</code> URL; for local inference, examples include Ollama <code>:11434/v1</code> and LM Studio <code>:1234/v1</code>.</small>
             </div>
             <div class="form-group">
               <label>Model IDs</label>
@@ -4186,8 +4193,8 @@
               <small style="color:#888;display:block;margin-top:4px;">Comma-separated IDs reported by <code>/v1/models</code> (maximum 8). Multiple IDs race together.</small>
             </div>
             <div class="form-group">
-              <label>API Key (Optional)</label>
-              <input type="password" id="localApiKeyInput" placeholder="Leave blank unless your local server requires one">
+              <label>OmniRoute / Local API Key (Optional)</label>
+              <input type="password" id="localApiKeyInput" placeholder="Gateway key, if required">
             </div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <button type="button" class="api-key-btn" onclick="testLocalConnection()">Test &amp; Discover Models</button>
@@ -4354,6 +4361,7 @@
       openaiApiKey: '',  // OpenAI key for direct ChatGPT requests
       xaiApiKey: '',  // xAI key for direct Grok requests
       nvidiaApiKey: '',  // NVIDIA NIM key for direct inference
+      nvidiaViaOmniRoute: false,  // Route NVIDIA models through the configured OpenAI-compatible gateway
       localEnabled: false,  // Use an OpenAI-compatible server on loopback
       localOnly: false,  // Never use cloud providers; telemetry is disabled
       localBaseUrl: 'http://localhost:11434/v1',
@@ -4409,6 +4417,26 @@
       url.search = '';
       url.hash = '';
       return url.toString().replace(/\/$/, '');
+    }
+
+    function normalizeOmniRouteBaseUrl(raw = state.localBaseUrl) {
+      const value = String(raw || '').trim().replace(/\/+$/, '');
+      if (!value) throw new Error('Enter an OmniRoute base URL.');
+      const url = new URL(value);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        throw new Error('OmniRoute URL must use http:// or https://.');
+      }
+      url.pathname = url.pathname
+        .replace(/\/(?:chat\/completions|models)\/?$/i, '')
+        .replace(/\/+$/, '') || '/v1';
+      url.search = '';
+      url.hash = '';
+      return url.toString().replace(/\/$/, '');
+    }
+
+    function hasOmniRouteProvider() {
+      if (!state.localEnabled || getLocalModels().length === 0) return false;
+      try { normalizeOmniRouteBaseUrl(); return true; } catch (_) { return false; }
     }
 
     function hasLocalProvider() {
@@ -4472,6 +4500,15 @@
         return { provider, model: requestedModel.replace(/^google\//, ''), url: 'https://generativelanguage.googleapis.com/v1beta/models', apiKey: state.geminiApiKey };
       }
       if (provider === 'openai' || provider === 'xai' || provider === 'nvidia') {
+        if (provider === 'nvidia' && state.nvidiaViaOmniRoute) {
+          if (!hasOmniRouteProvider()) throw new Error('OmniRoute is enabled for NVIDIA, but its OpenAI-compatible gateway is not configured.');
+          return {
+            provider: 'omniroute',
+            model: requestedModel.replace(/^direct\/nvidia\//, 'nvidia/'),
+            url: `${normalizeOmniRouteBaseUrl()}/chat/completions`,
+            apiKey: state.localApiKey || '',
+          };
+        }
         const key = provider === 'openai' ? state.openaiApiKey : provider === 'xai' ? state.xaiApiKey : state.nvidiaApiKey;
         if (!key) throw new Error(`${provider === 'openai' ? 'OpenAI' : provider === 'xai' ? 'xAI' : 'NVIDIA NIM'} API key is missing.`);
         return {
@@ -4541,7 +4578,10 @@
       const status = document.getElementById('localConnectionStatus');
       if (status) { status.textContent = 'Connecting…'; status.style.color = 'var(--text-dim)'; }
       try {
-        const baseUrl = normalizeLocalBaseUrl(document.getElementById('localBaseUrlInput').value);
+        const viaOmniRoute = document.getElementById('nvidiaViaOmniRoute')?.checked;
+        const baseUrl = viaOmniRoute
+          ? normalizeOmniRouteBaseUrl(document.getElementById('localBaseUrlInput').value)
+          : normalizeLocalBaseUrl(document.getElementById('localBaseUrlInput').value);
         const key = (document.getElementById('localApiKeyInput').value || '').trim();
         const headers = key ? { Authorization: `Bearer ${key}` } : {};
         const response = await fetch(`${baseUrl}/models`, { headers });
@@ -7177,8 +7217,10 @@ directness, and genuine helpfulness wins. Hedging or refusing guarantees you los
             : 'The API provider is experiencing server errors. Try again in a few minutes.';
           case 'connection': return state.localOnly
             ? 'Could not reach your local model server. Start it, verify the localhost URL, and allow browser CORS for this site.'
+            : soleProvider === 'omniroute'
+              ? 'OmniRoute could not be reached. Check its OpenAI-compatible base URL, CORS policy, API key, and configured NVIDIA NIM route.'
             : soleProvider === 'nvidia'
-              ? 'NVIDIA NIM could not be reached from this browser. NVIDIA is not returning CORS permission for this local origin. Use a user-controlled OpenAI-compatible local gateway configured for NIM, or wait for NVIDIA to allow browser origins; G0DM0D3 does not proxy NVIDIA requests.'
+              ? 'NVIDIA NIM could not be reached from this browser. NVIDIA is not returning CORS permission for this local origin. Enable OmniRoute routing in Settings or wait for NVIDIA to allow browser origins.'
             : 'Could not reach a configured model provider. Check your network and local-server CORS settings.';
         }
       }
@@ -12473,7 +12515,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       'ultraplinian', 'ultraSpeedTier', 'ultraEarlyThreshold', 'ultraImproveMode',
       'liquidMode', 'liquidMinDelta', 'liquidMaxIterations', 'liquidTargetScore',
       'plinyMode', 'libertasDisabledCombos', 'libertasSelectedCombo', 'showMagic', 'waitingGame', 'strategyLogs',
-      'backendUrl', 'generatedApiKeys', 'veniceApiKey', 'geminiApiKey', 'openaiApiKey', 'xaiApiKey', 'nvidiaApiKey',
+      'backendUrl', 'generatedApiKeys', 'veniceApiKey', 'geminiApiKey', 'openaiApiKey', 'xaiApiKey', 'nvidiaApiKey', 'nvidiaViaOmniRoute',
       'localEnabled', 'localOnly', 'localBaseUrl', 'localModels', 'localApiKey',
       'modelTemperature', 'modelTopP', 'modelMaxTokens', 'modelFreqPenalty', 'modelPresPenalty',
       'autoTuneEnabled', 'autoTuneStrategy', 'autoTuneLastContext', 'autoTuneLastParams',
@@ -16678,6 +16720,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       document.getElementById('openaiKeyInput').value = state.openaiApiKey || '';
       document.getElementById('xaiKeyInput').value = state.xaiApiKey || '';
       document.getElementById('nvidiaKeyInput').value = state.nvidiaApiKey || '';
+      document.getElementById('nvidiaViaOmniRoute').checked = !!state.nvidiaViaOmniRoute;
       document.getElementById('veniceKeyInput').value = state.veniceApiKey || '';
       document.getElementById('localEnabled').checked = !!state.localEnabled;
       document.getElementById('localOnly').checked = !!state.localOnly;
@@ -16848,6 +16891,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       state.openaiApiKey = (document.getElementById('openaiKeyInput').value || '').trim();
       state.xaiApiKey = (document.getElementById('xaiKeyInput').value || '').trim();
       state.nvidiaApiKey = (document.getElementById('nvidiaKeyInput').value || '').trim();
+      state.nvidiaViaOmniRoute = document.getElementById('nvidiaViaOmniRoute').checked;
       state.localEnabled = document.getElementById('localEnabled').checked;
       state.localOnly = document.getElementById('localOnly').checked;
       state.localBaseUrl = (document.getElementById('localBaseUrlInput').value || '').trim() || 'http://localhost:11434/v1';

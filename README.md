@@ -54,7 +54,7 @@ python3 -m http.server 8000
 
 Open it in your browser and configure Google Gemini, ChatGPT/OpenAI, Grok/xAI, NVIDIA NIM, OpenRouter, Venice, or local models in Settings. Direct provider setup links are [Google AI Studio](https://aistudio.google.com/apikey), [OpenAI](https://platform.openai.com/api-keys), [xAI](https://console.x.ai/), and [NVIDIA NIM](https://build.nvidia.com/). Direct provider requests go browser-to-provider; keys are not sent to the G0DM0D3 server. Provider quotas, billing, model availability, and privacy terms apply. Direct Gemini uses the Generative Language API and currently supports text/system instructions; browser CORS or network policy changes can prevent direct calls. NVIDIA NIM requests have the same browser-origin limitation: if NVIDIA does not allow the local origin, a static browser-only deployment cannot call NIM directly, and this project does not proxy those requests.
 
-If NVIDIA's endpoint does not return browser CORS headers, use a user-controlled OpenAI-compatible local gateway (for example, a local LiteLLM deployment) configured with your NVIDIA key, then point **Settings → API Keys → Local Models** at that gateway. In that arrangement the key stays in your local gateway and is not sent to G0DM0D3 or NVIDIA through the browser page.
+If NVIDIA's endpoint does not return browser CORS headers, enable **Route NVIDIA models through OmniRoute gateway** under the NVIDIA settings, then point **Settings → API Keys → Local Models** at your user-controlled OmniRoute OpenAI-compatible `/v1` endpoint and enter the gateway key there. In that arrangement G0DM0D3 sends the model request to OmniRoute; the NVIDIA key is not sent by the browser page or stored in G0DM0D3.
 
 Example with LiteLLM:
 
@@ -64,7 +64,7 @@ $env:NVIDIA_NIM_API_KEY = "paste-your-replacement-key-here"
 litellm --model nvidia_nim/meta/llama-3.1-8b-instruct --port 4000
 ```
 
-Then set **Base URL** to `http://localhost:4000/v1`, set **API Key** to the local gateway key if configured (otherwise leave it blank), click **Test & Discover Models**, and select the discovered model. Keep the gateway bound to localhost and never commit the NVIDIA key or place it in a `NEXT_PUBLIC_*` variable.
+Then enable the OmniRoute toggle, set **OmniRoute / Local Base URL** to `http://localhost:4000/v1`, set **OmniRoute / Local API Key** to the gateway key if configured, click **Test & Discover Models**, and select the discovered model. Keep the gateway bound to localhost when possible and never commit the NVIDIA key or place it in a `NEXT_PUBLIC_*` variable.
 
 A static-only deployment can run the chat UI, but `/api/telemetry` will not publish metadata unless you also deploy `functions/api/telemetry.ts` on Cloudflare Pages and configure its Hugging Face variables. Direct Gemini depends on the browser being able to reach Google's Generative Language API; restrictive network policies, browser extensions, or a future Google CORS change can prevent direct calls. The project does not proxy Gemini requests or expose the key server-side.
 
