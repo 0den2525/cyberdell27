@@ -22,7 +22,6 @@
       --hover: #0d1f0d;
       --danger: #ff3e3e;
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     /* Safari-safe viewport height */
@@ -4170,6 +4169,29 @@
             </div>
           </div>
           <div class="settings-section">
+            <div class="settings-section-title">OmniRoute / Custom AI Provider (Optional)</div>
+            <div class="form-group">
+              <label>Provider Name</label>
+              <input type="text" id="customProviderNameInput" placeholder="OmniRoute">
+              <label>OpenAI-Compatible Base URL</label>
+              <input type="text" id="omniRouteBaseUrlInput" placeholder="https://your-omniroute-host/v1">
+              <small style="color:#888;display:block;margin-top:4px;">The endpoint must expose <code>/models</code> and <code>/chat/completions</code>. Browser CORS must allow this page.</small>
+            </div>
+            <div class="form-group">
+              <label>Provider API Key (Optional)</label>
+              <input type="password" id="omniRouteApiKeyInput" placeholder="Gateway key, if required">
+            </div>
+            <div class="form-group">
+              <label>Model IDs</label>
+              <input type="text" id="omniRouteModelsInput" placeholder="nvidia/meta/llama-3.1-8b-instruct">
+              <small style="color:#888;display:block;margin-top:4px;">Comma-separated IDs. These are added to the Default Model selector with the provider name.</small>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <button type="button" class="api-key-btn" onclick="testOmniRouteConnection()">Test &amp; Discover Models</button>
+              <span id="omniRouteConnectionStatus" style="font-size:11px;color:var(--text-dim);"></span>
+            </div>
+          </div>
+          <div class="settings-section">
             <div class="settings-section-title">Local Models (Optional)</div>
             <div class="form-group">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -4362,6 +4384,10 @@
       xaiApiKey: '',  // xAI key for direct Grok requests
       nvidiaApiKey: '',  // NVIDIA NIM key for direct inference
       nvidiaViaOmniRoute: false,  // Route NVIDIA models through the configured OpenAI-compatible gateway
+      customProviderName: 'OmniRoute',
+      omniRouteBaseUrl: '',
+      omniRouteModels: '',
+      omniRouteApiKey: '',
       localEnabled: false,  // Use an OpenAI-compatible server on loopback
       localOnly: false,  // Never use cloud providers; telemetry is disabled
       localBaseUrl: 'http://localhost:11434/v1',
@@ -4388,6 +4414,7 @@
     let abortController = null;
     let _apiKeyGeneration = 0;
     let _localApiKeyGeneration = 0;
+    let _omniRouteApiKeyGeneration = 0;
 
     // ═══════════════════════════════════════════════════════════════════
     // MODEL TRANSPORT — cloud + OpenAI-compatible loopback providers
@@ -4398,6 +4425,10 @@
         .split(',')
         .map(model => model.trim())
         .filter(Boolean))].slice(0, 8);
+    }
+
+    function getOmniRouteModels() {
+      return [...new Set(String(state.omniRouteModels || '').split(',').map(model => model.trim()).filter(Boolean))].slice(0, 8);
     }
 
     function normalizeLocalBaseUrl(raw = state.localBaseUrl) {
@@ -4435,8 +4466,8 @@
     }
 
     function hasOmniRouteProvider() {
-      if (!state.localEnabled || getLocalModels().length === 0) return false;
-      try { normalizeOmniRouteBaseUrl(); return true; } catch (_) { return false; }
+      if (getOmniRouteModels().length === 0) return false;
+      try { normalizeOmniRouteBaseUrl(state.omniRouteBaseUrl); return true; } catch (_) { return false; }
     }
 
     function hasLocalProvider() {
@@ -4446,14 +4477,15 @@
 
     function hasAnyChatProvider() {
       if (state.localOnly) return hasLocalProvider();
-      return !!(state.apiKey || state.geminiApiKey || state.openaiApiKey || state.xaiApiKey || state.nvidiaApiKey || state.veniceApiKey || hasLocalProvider());
+      return !!(state.apiKey || state.geminiApiKey || state.openaiApiKey || state.xaiApiKey || state.nvidiaApiKey || state.veniceApiKey || hasLocalProvider() || hasOmniRouteProvider());
     }
 
     function hasAuxiliaryModelProvider() {
-      return !!state.apiKey || !!state.geminiApiKey || !!state.openaiApiKey || !!state.xaiApiKey || !!state.nvidiaApiKey || hasLocalProvider();
+      return !!state.apiKey || !!state.geminiApiKey || !!state.openaiApiKey || !!state.xaiApiKey || !!state.nvidiaApiKey || hasLocalProvider() || hasOmniRouteProvider();
     }
 
     function inferProviderForModel(model) {
+      if (getOmniRouteModels().includes(model.replace(/^omniroute\//, ''))) return 'omniroute';
       if (getLocalModels().includes(model)) return 'local';
       if (typeof VENICE_MODELS !== 'undefined' && VENICE_MODELS.includes(model)) return 'venice';
       if (state.geminiApiKey && model.startsWith('google/gemini-')) return 'gemini';
@@ -4469,6 +4501,7 @@
 
       if (state.localOnly) provider = 'local';
       if (provider === 'auto') {
+        if (requestedModel.startsWith('omniroute/')) provider = 'omniroute';
         if (state.geminiApiKey && requestedModel.startsWith('google/gemini-')) provider = 'gemini';
         else if (state.openaiApiKey && requestedModel.startsWith('direct/openai/')) provider = 'openai';
         else if (state.xaiApiKey && requestedModel.startsWith('direct/xai/')) provider = 'xai';
@@ -4491,6 +4524,15 @@
           apiKey: state.localApiKey || '',
         };
       }
+      if (provider === 'omniroute') {
+        if (!hasOmniRouteProvider()) throw new Error('Custom provider is not configured. Open Settings → API Keys.');
+        return {
+          provider,
+          model: requestedModel.replace(/^omniroute\//, ''),
+          url: `${normalizeOmniRouteBaseUrl(state.omniRouteBaseUrl)}/chat/completions`,
+          apiKey: state.omniRouteApiKey || '',
+        };
+      }
       if (provider === 'venice') {
         if (!state.veniceApiKey) throw new Error('Venice API key is missing.');
         return { provider, model: requestedModel, url: 'https://api.venice.ai/api/v1/chat/completions', apiKey: state.veniceApiKey };
@@ -4504,9 +4546,9 @@
           if (!hasOmniRouteProvider()) throw new Error('OmniRoute is enabled for NVIDIA, but its OpenAI-compatible gateway is not configured.');
           return {
             provider: 'omniroute',
-            model: requestedModel.replace(/^direct\/nvidia\//, 'nvidia/'),
-            url: `${normalizeOmniRouteBaseUrl()}/chat/completions`,
-            apiKey: state.localApiKey || '',
+            model: requestedModel.replace(/^direct\/nvidia\//, ''),
+            url: `${normalizeOmniRouteBaseUrl(state.omniRouteBaseUrl)}/chat/completions`,
+            apiKey: state.omniRouteApiKey || '',
           };
         }
         const key = provider === 'openai' ? state.openaiApiKey : provider === 'xai' ? state.xaiApiKey : state.nvidiaApiKey;
@@ -4598,6 +4640,41 @@
         if (status) { status.textContent = `Connected — ${models.length} model${models.length === 1 ? '' : 's'} found`; status.style.color = 'var(--accent)'; }
       } catch (err) {
         if (status) { status.textContent = `Connection failed: ${err.message}. Check server CORS.`; status.style.color = '#ff6b6b'; }
+      }
+
+      async function testOmniRouteConnection() {
+        const status = document.getElementById('omniRouteConnectionStatus');
+        if (status) { status.textContent = 'Connecting…'; status.style.color = 'var(--text-dim)'; }
+        try {
+          const baseUrl = normalizeOmniRouteBaseUrl(document.getElementById('omniRouteBaseUrlInput').value);
+          const key = (document.getElementById('omniRouteApiKeyInput').value || '').trim();
+          const response = await fetch(`${baseUrl}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {} });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          const models = (Array.isArray(data?.data) ? data.data : []).map(item => item?.id).filter(id => typeof id === 'string' && id.trim()).slice(0, 8);
+          if (!models.length) throw new Error('Server returned no model IDs');
+          document.getElementById('omniRouteModelsInput').value = models.join(', ');
+          saveSettings();
+          addOmniRouteModelOptions();
+          if (status) { status.textContent = `Connected — ${models.length} model${models.length === 1 ? '' : 's'} found`; status.style.color = 'var(--accent)'; }
+        } catch (err) {
+          if (status) { status.textContent = `Connection failed: ${err.message}`; status.style.color = '#ff6b6b'; }
+        }
+      }
+
+      function addOmniRouteModelOptions() {
+        const models = getOmniRouteModels();
+        document.querySelectorAll('#modelSelect, #defaultModelInput').forEach(select => {
+          let group = select.querySelector('optgroup[data-custom-provider]');
+          if (!group && models.length) {
+            group = document.createElement('optgroup');
+            group.dataset.customProvider = 'true';
+            select.appendChild(group);
+          }
+          if (!group) return;
+          group.label = `${state.customProviderName || 'OmniRoute'} (custom)`;
+          group.innerHTML = models.map(model => `<option value="omniroute/${model}">${model}</option>`).join('');
+        });
       }
     }
 
@@ -12516,6 +12593,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       'liquidMode', 'liquidMinDelta', 'liquidMaxIterations', 'liquidTargetScore',
       'plinyMode', 'libertasDisabledCombos', 'libertasSelectedCombo', 'showMagic', 'waitingGame', 'strategyLogs',
       'backendUrl', 'generatedApiKeys', 'veniceApiKey', 'geminiApiKey', 'openaiApiKey', 'xaiApiKey', 'nvidiaApiKey', 'nvidiaViaOmniRoute',
+      'customProviderName', 'omniRouteBaseUrl', 'omniRouteModels',
       'localEnabled', 'localOnly', 'localBaseUrl', 'localModels', 'localApiKey',
       'modelTemperature', 'modelTopP', 'modelMaxTokens', 'modelFreqPenalty', 'modelPresPenalty',
       'autoTuneEnabled', 'autoTuneStrategy', 'autoTuneLastContext', 'autoTuneLastParams',
@@ -12739,9 +12817,25 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
           saveState();
         });
       }
+      const encOmniKey = localStorage.getItem('g0dm0d3-omniroute-apikey');
+      if (encOmniKey) {
+        const genAtLoad = _omniRouteApiKeyGeneration;
+        decryptApiKey(encOmniKey).then(plain => {
+          if (_omniRouteApiKeyGeneration !== genAtLoad) return;
+          state.omniRouteApiKey = plain;
+        });
+      } else if (state.omniRouteApiKey) {
+        const legacyOmniKey = state.omniRouteApiKey;
+        encryptApiKey(legacyOmniKey).then(enc => {
+          if (state.omniRouteApiKey !== legacyOmniKey) return;
+          localStorage.setItem('g0dm0d3-omniroute-apikey', enc);
+          saveState();
+        });
+      }
       // Sanitize loaded state — same rules as import
       sanitizeLoadedState();
       _log('[DEBUG] loadState: final state.ultraplinian =', state.ultraplinian);
+      addOmniRouteModelOptions();
       document.getElementById('modelSelect').value = state.model;
       // Restore L1B3RT4S combo selector
       // Migrate stale libertasSelectedCombo values to current combo IDs
@@ -12984,7 +13078,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       _saveStatePending = false;
       enforceDataCaps(); // Cap unbounded arrays before serialization
       // Strip credentials from the main blob — they are stored separately.
-      const { apiKey, localApiKey, ...stateWithoutKeys } = state;
+      const { apiKey, localApiKey, omniRouteApiKey, ...stateWithoutKeys } = state;
       const payload = JSON.stringify(stateWithoutKeys);
 
       // Persist encrypted key separately (async, best-effort)
@@ -13008,6 +13102,16 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
         });
       } else {
         localStorage.removeItem('g0dm0d3-local-apikey');
+      }
+      if (omniRouteApiKey) {
+        const keyAtFlush = omniRouteApiKey;
+        encryptApiKey(keyAtFlush).then(enc => {
+          if (state.omniRouteApiKey === keyAtFlush) {
+            try { localStorage.setItem('g0dm0d3-omniroute-apikey', enc); } catch (_) {}
+          }
+        });
+      } else {
+        localStorage.removeItem('g0dm0d3-omniroute-apikey');
       }
 
       try {
@@ -16721,6 +16825,11 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       document.getElementById('xaiKeyInput').value = state.xaiApiKey || '';
       document.getElementById('nvidiaKeyInput').value = state.nvidiaApiKey || '';
       document.getElementById('nvidiaViaOmniRoute').checked = !!state.nvidiaViaOmniRoute;
+      document.getElementById('customProviderNameInput').value = state.customProviderName || 'OmniRoute';
+      document.getElementById('omniRouteBaseUrlInput').value = state.omniRouteBaseUrl || '';
+      document.getElementById('omniRouteModelsInput').value = state.omniRouteModels || '';
+      document.getElementById('omniRouteApiKeyInput').value = state.omniRouteApiKey || '';
+      addOmniRouteModelOptions();
       document.getElementById('veniceKeyInput').value = state.veniceApiKey || '';
       document.getElementById('localEnabled').checked = !!state.localEnabled;
       document.getElementById('localOnly').checked = !!state.localOnly;
@@ -16892,6 +17001,12 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       state.xaiApiKey = (document.getElementById('xaiKeyInput').value || '').trim();
       state.nvidiaApiKey = (document.getElementById('nvidiaKeyInput').value || '').trim();
       state.nvidiaViaOmniRoute = document.getElementById('nvidiaViaOmniRoute').checked;
+      state.customProviderName = (document.getElementById('customProviderNameInput').value || '').trim() || 'OmniRoute';
+      state.omniRouteBaseUrl = (document.getElementById('omniRouteBaseUrlInput').value || '').trim();
+      state.omniRouteModels = (document.getElementById('omniRouteModelsInput').value || '').trim();
+      const newOmniKey = (document.getElementById('omniRouteApiKeyInput').value || '').trim();
+      if (newOmniKey !== state.omniRouteApiKey) _omniRouteApiKeyGeneration++;
+      state.omniRouteApiKey = newOmniKey;
       state.localEnabled = document.getElementById('localEnabled').checked;
       state.localOnly = document.getElementById('localOnly').checked;
       state.localBaseUrl = (document.getElementById('localBaseUrlInput').value || '').trim() || 'http://localhost:11434/v1';
