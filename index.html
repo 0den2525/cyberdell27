@@ -4256,19 +4256,19 @@
       customSystemPromptEnabled: false,
       conversations: [],
       currentId: null,
-      noLogMode: false,
+      noLogMode: true, // MANAGER SAFE DEFAULT: do not send structural telemetry
       sidebarOpen: true,
-      autoRetry: true,
-      parseltongue: true,
+      autoRetry: false, // MANAGER SAFE DEFAULT: no hidden duplicate calls
+      parseltongue: false, // MANAGER SAFE DEFAULT: no extra transformation call
       parseltongueTier: 'standard',
-      maxRetries: 5,
-      ultraplinian: true,  // ULTRAPLINIAN: Query ALL models, LLM picks best (DEFAULT for new users)
-      ultraSpeedTier: 'standard',  // Speed tier: 'fast' (12), 'standard' (27), 'smart' (41), 'power' (53), 'ultra' (60)
-      ultraEarlyThreshold: 75,  // Score threshold for early stopping (0 = disabled, higher = faster but pickier)
-      ultraImproveMode: true,   // Coaching Pass: AI coach analyzes winner and demands specific enhancements
-      liquidMode: true,         // Liquid Response: continuously refine response in background until peak quality (DEFAULT ON)
+      maxRetries: 1,
+      ultraplinian: false,  // MANAGER SAFE DEFAULT: one-model call; opt into races deliberately
+      ultraSpeedTier: 'fast',  // Speed tier: 'fast' (12), 'standard' (27), 'smart' (41), 'power' (53), 'ultra' (60)
+      ultraEarlyThreshold: 85,  // Stop early when a deliberate race is already decisive
+      ultraImproveMode: false,   // No hidden coaching call in the default profile
+      liquidMode: false,         // No background refinement calls by default
       liquidMinDelta: 8,        // Minimum quality improvement % to morph the response
-      liquidMaxIterations: 4,   // Maximum refinement iterations before stopping
+      liquidMaxIterations: 1,   // Maximum refinement iterations before stopping
       liquidTargetScore: 85,    // Target quality score (0-100) - crystallize when reached
       plinyMode: false,  // L1B3RT4S MODE: Use jailbreak templates with query injection
       libertasDisabledCombos: [],  // Array of Hall of Fame combo IDs toggled OFF
@@ -4287,7 +4287,7 @@
       // Universal model parameters
       modelTemperature: 0.7,
       modelTopP: 1.0,
-      modelMaxTokens: 4096,
+      modelMaxTokens: 2048, // Manager cap; raise only for a named high-value task
       modelFreqPenalty: 0,
       modelPresPenalty: 0,
       // AutoTune - intelligent parameter optimization
