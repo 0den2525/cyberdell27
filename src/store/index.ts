@@ -99,7 +99,6 @@ export interface AppState {
   // Core state
   theme: Theme
   apiKey: string
-  veniceApiKey: string
   defaultModel: string
   conversations: Conversation[]
   currentConversationId: string | null
@@ -182,7 +181,6 @@ export interface AppState {
   // Actions
   setTheme: (theme: Theme) => void
   setApiKey: (key: string) => void
-  setVeniceApiKey: (key: string) => void
   setDefaultModel: (model: string) => void
   setShowSettings: (show: boolean) => void
   setShowMagic: (show: boolean) => void
@@ -353,7 +351,6 @@ export const useStore = create<AppState>()(
       // Initial state
       theme: 'matrix',
       apiKey: '',
-      veniceApiKey: '',
       defaultModel: 'anthropic/claude-opus-4.6',
       conversations: [],
       currentConversationId: null,
@@ -429,7 +426,6 @@ export const useStore = create<AppState>()(
       // Actions
       setTheme: (theme) => set({ theme }),
       setApiKey: (apiKey) => set({ apiKey }),
-      setVeniceApiKey: (veniceApiKey: string) => set({ veniceApiKey }),
       setDefaultModel: (defaultModel) => set({ defaultModel }),
       setShowSettings: (showSettings) => set({ showSettings }),
       setShowMagic: (showMagic) => set({ showMagic }),
@@ -721,7 +717,7 @@ export const useStore = create<AppState>()(
         // stmModules excluded: transformer functions can't be serialized/deserialized
         const allowed = [
           'conversations', 'currentConversationId', 'theme', 'defaultModel',
-          'currentPersona', 'apiKey', 'veniceApiKey', 'autoTuneEnabled', 'autoTuneStrategy',
+          'currentPersona', 'apiKey', 'autoTuneEnabled', 'autoTuneStrategy',
           'autoTuneOverrides', 'feedbackState', 'parseltongueConfig',
           'memories', 'memoriesEnabled', 'customSystemPrompt', 'useCustomSystemPrompt',
           'consortiumEnabled', 'consortiumTier', 'liquidResponseEnabled', 'liquidMinDelta',
@@ -743,7 +739,6 @@ export const useStore = create<AppState>()(
         theme: state.theme,
         showMagic: state.showMagic,
         apiKey: state.apiKey,
-        veniceApiKey: state.veniceApiKey,
         defaultModel: state.defaultModel,
         conversations: state.conversations,
         currentConversationId: state.currentConversationId,

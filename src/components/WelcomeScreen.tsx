@@ -70,8 +70,8 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps) {
         />
         <FeatureCard
           icon={<span className="text-xl">◉</span>}
-          title="Metadata Telemetry"
-          description="Operational metadata only; no prompt or response text in events."
+          title="Zero Telemetry"
+          description="No cookies, no tracking, no data harvesting. Ever."
         />
         <FeatureCard
           icon={<span className="text-xl">△</span>}

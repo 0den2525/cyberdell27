@@ -34,15 +34,11 @@ import {
   GODMODE_SYSTEM_PROMPT,
   DEPTH_DIRECTIVE,
   getModelsForTier,
-  getVeniceModelsForTier,
   raceModels,
   scoreResponse,
   applyGodmodeBoost,
-  diagnoseAllModelsFailed,
-  classifyModelError,
   type SpeedTier,
   type ModelResult,
-  type RaceEntry,
 } from '../lib/ultraplinian'
 import { addEntry } from '../lib/dataset'
 import { recordEvent, categorizeError } from '../lib/metadata'
@@ -56,7 +52,6 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
     const {
       messages,
       openrouter_api_key: caller_key,
-      venice_api_key: caller_venice_key,
       // ULTRAPLINIAN options
       tier = 'fast' as SpeedTier,
       godmode = true,
@@ -233,11 +228,6 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
       repetition_penalty: finalParams.repetition_penalty,
     }
 
-    // ── Venice entries (race alongside OpenRouter when key is provided) ──
-    const veniceEntries: RaceEntry[] = caller_venice_key
-      ? getVeniceModelsForTier(tier).map(m => ({ model: m, apiKey: caller_venice_key, provider: 'venice' as const }))
-      : []
-
     // ══════════════════════════════════════════════════════════════════
     // STREAMING PATH: SSE "liquid response" mode
     // Serves the first good response immediately, then upgrades live
@@ -257,7 +247,7 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
       // Send race:start immediately
       sse('race:start', {
         tier,
-        models_queried: models.length + veniceEntries.length,
+        models_queried: models.length,
         liquid_min_delta: minDelta,
         params_used: finalParams,
         pipeline: {
@@ -299,7 +289,7 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
               error: scored.error || undefined,
               content_length: scored.content?.length || 0,
               models_responded: modelsResponded,
-              models_total: models.length + veniceEntries.length,
+              models_total: models.length,
             })
 
             // New leader? Only upgrade if score beats current by liquid_min_delta
@@ -336,7 +326,6 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
             }
           },
         },
-        veniceEntries.length > 0 ? veniceEntries : undefined,
       )
 
       // ── Final scoring & complete event ─────────────────────────────
@@ -358,11 +347,6 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
 
       const winner = scoredResults.find(r => r.success)
       let finalResponse = winner?.content || ''
-
-      // When all models fail in streaming mode, provide diagnostic message
-      if (!winner) {
-        finalResponse = diagnoseAllModelsFailed(scoredResults)
-      }
       let stmResult = null
 
       if (winner && stm_modules && Array.isArray(stm_modules) && stm_modules.length > 0) {
@@ -403,7 +387,7 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
         race: {
           tier,
           liquid_min_delta: minDelta,
-          models_queried: models.length + veniceEntries.length,
+          models_queried: models.length,
           models_succeeded: successCount,
           total_duration_ms: totalDuration,
           rankings: scoredResults.map(r => {
@@ -453,7 +437,7 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
         autotune: autotuneResult
           ? { detected_context: autotuneResult.detectedContext, confidence: autotuneResult.confidence }
           : undefined,
-        models_queried: models.length + veniceEntries.length,
+        models_queried: models.length,
         models_succeeded: successCount,
         model_results: scoredResults.map(r => ({
           model: r.model,
@@ -491,7 +475,6 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
         gracePeriod: 5000,
         hardTimeout: 45000,
       },
-      veniceEntries.length > 0 ? veniceEntries : undefined,
     )
 
     // ── Score and rank ───────────────────────────────────────────────
@@ -521,7 +504,7 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
         mode: 'ultraplinian-failed',
         tier,
         stream,
-        models_queried: models.length + veniceEntries.length,
+        models_queried: models.length,
         models_succeeded: scoredResults.filter(r => r.success).length,
         model_results: scoredResults.map(r => ({
           model: r.model, score: r.score, duration_ms: r.duration_ms,
@@ -531,12 +514,11 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
         total_duration_ms: Date.now() - startTime,
       })
       res.status(502).json({
-        error: diagnoseAllModelsFailed(scoredResults),
-        models_queried: models.length + veniceEntries.length,
+        error: 'All models failed in ULTRAPLINIAN mode',
+        models_queried: models.length,
         results: scoredResults.map(r => ({
           model: r.model, success: r.success,
-          error: r.error, error_type: classifyModelError(r.error),
-          duration_ms: r.duration_ms,
+          error: r.error, duration_ms: r.duration_ms,
         })),
       })
       return
@@ -592,7 +574,7 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
       autotune: autotuneResult
         ? { detected_context: autotuneResult.detectedContext, confidence: autotuneResult.confidence }
         : undefined,
-      models_queried: models.length + veniceEntries.length,
+      models_queried: models.length,
       models_succeeded: successCount,
       model_results: scoredResults.map(r => ({
         model: r.model,
@@ -613,7 +595,7 @@ ultraplinianRoutes.post('/completions', async (req, res) => {
       winner: { model: winner.model, score: winner.score, duration_ms: winner.duration_ms },
       race: {
         tier, liquid_min_delta: minDelta,
-        models_queried: models.length + veniceEntries.length, models_succeeded: successCount,
+        models_queried: models.length, models_succeeded: successCount,
         total_duration_ms: totalDuration,
         rankings: scoredResults.map(r => {
           let browsableContent = ''
