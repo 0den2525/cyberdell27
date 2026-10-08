@@ -19,22 +19,6 @@ restricted to `localhost`, `127.0.0.1`, and `::1`.
 5. Enable **Local-only mode** to block OpenRouter and Venice model calls and
    disable G0DM0D3 app telemetry.
 
-When the browser connects directly to Ollama, Ollama must allow the page's
-origin. For example, to use the hosted page and a locally served interface,
-start Ollama with both origins:
-
-```bash
-OLLAMA_ORIGINS="https://godmod3.ai,http://localhost:8080" ollama serve
-```
-
-On macOS, set `OLLAMA_ORIGINS` in the environment used to launch Ollama (for
-example, with `launchctl setenv OLLAMA_ORIGINS "https://godmod3.ai,http://localhost:8080"`),
-then quit and reopen Ollama. On Linux, export it in the shell or service
-environment before starting Ollama. Substitute the local web origin and port
-you actually use. If LM Studio or another compatible server is used instead,
-allow the page origin in that server's browser/CORS settings. If you do not want
-to expose a local endpoint to a hosted page, serve G0DM0D3 locally as described
-below.
 
 ## Quick start with LM Studio
 
