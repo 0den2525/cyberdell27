@@ -16,6 +16,19 @@ docker run -p 7860:7860 g0dm0d3-api
 docker run -p 7860:7860 -e GODMODE_API_KEY=your-secret-key g0dm0d3-api
 ```
 
+The API allows requests from `https://godmod3.ai` and local loopback web origins
+(`http://localhost:<port>`, `http://127.0.0.1:<port>`, or `http://[::1]:<port>`)
+by default. Set `CORS_ORIGIN` to a comma-separated list to add or replace the
+hosted-site allowlist, for example:
+
+```bash
+CORS_ORIGIN="https://godmod3.ai,https://my-g0dm0d3.example" npm run api
+```
+
+`HF_SPACE_URL` is also allowed when configured. For fully self-hosted deployments
+that intentionally need to accept requests from any origin, set
+`CORS_ORIGIN=*`.
+
 ## Authentication
 
 Set `GODMODE_API_KEY` (single key) or `GODMODE_API_KEYS` (comma-separated) as environment variables. If neither is set, auth is disabled (open access for local dev).

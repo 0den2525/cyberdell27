@@ -35,11 +35,30 @@ const app = express()
 const PORT = parseInt(process.env.PORT || '7860', 10) // HF Spaces default
 
 // ── Middleware ─────────────────────────────────────────────────────────
-// CORS: Allow configured origins. When self-hosting, set CORS_ORIGIN=* to allow all.
-const corsOrigins = process.env.CORS_ORIGIN === '*'
-  ? true  // Allow all origins (self-hosted / behind reverse proxy)
-  : [process.env.CORS_ORIGIN || 'https://godmod3.ai', ...(process.env.HF_SPACE_URL ? [process.env.HF_SPACE_URL] : [])].filter(Boolean)
-app.use(cors({ origin: corsOrigins, credentials: false }))
+// CORS: Allow the hosted UI, local development servers, and configured origins.
+const configuredCorsOrigins = [
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['https://godmod3.ai']),
+  ...(process.env.HF_SPACE_URL ? process.env.HF_SPACE_URL.split(',') : []),
+].map(origin => origin.trim()).filter(Boolean)
+
+function isLoopbackWebOrigin(origin: string) {
+  try {
+    const url = new URL(origin)
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    return url.origin === origin
+      && ['http:', 'https:'].includes(url.protocol)
+      && ['localhost', '127.0.0.1', '::1'].includes(hostname)
+  } catch {
+    return false
+  }
+}
+
+app.use(cors({
+  origin: process.env.CORS_ORIGIN === '*'
+    ? true
+    : (origin, callback) => callback(null, !origin || configuredCorsOrigins.includes(origin) || isLoopbackWebOrigin(origin)),
+  credentials: false,
+}))
 
 // Security headers via helmet
 app.use(helmet({
