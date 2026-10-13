@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://openrouter.ai https://*.openrouter.ai https://api.venice.ai http://localhost:* https://localhost:* http://127.0.0.1:* https://127.0.0.1:* http://[::1]:* https://[::1]:* https://cloudflareinsights.com https://*.cloudflareinsights.com; img-src 'self' data: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://api.deepseek.com https://openrouter.ai https://*.openrouter.ai https://api.venice.ai http://localhost:* https://localhost:* http://127.0.0.1:* https://127.0.0.1:* http://[::1]:* https://[::1]:* https://cloudflareinsights.com https://*.cloudflareinsights.com; img-src 'self' data: blob:;">
   <title>G0DM0DƎ</title>
   <link rel="icon" type="image/svg+xml" href="public/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4320,8 +4320,8 @@
       if (!value) throw new Error('Enter a local model base URL.');
       const url = new URL(value);
       const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-      if (!['localhost', '127.0.0.1', '::1'].includes(host)) {
-        throw new Error('Local model URL must use localhost, 127.0.0.1, or ::1.');
+      if (!['localhost', '127.0.0.1', '::1', 'api.deepseek.com'].includes(host)) {
+        throw new Error('Endpoint must be loopback or api.deepseek.com.');
       }
       if (!['http:', 'https:'].includes(url.protocol)) {
         throw new Error('Local model URL must use http:// or https://.');
@@ -4386,10 +4386,36 @@
       return { provider: 'openrouter', model: requestedModel, url: 'https://openrouter.ai/api/v1/chat/completions', apiKey: state.apiKey };
     }
 
+    // Several mode pipelines used to hardcode OpenRouter. Resolve them through
+    // resolveChatTarget() so OpenRouter, Venice, and local/OpenAI-compatible
+    // endpoints (DeepSeek included) work in every mode, not just ULTRAPLINIAN.
+    function resolveProviderEndpoint(model, preferredProvider = 'auto', title = 'GODMOD3.AI') {
+      const target = resolveChatTarget(model, preferredProvider);
+      const headers = { 'Content-Type': 'application/json' };
+      if (target.apiKey) headers.Authorization = `Bearer ${target.apiKey}`;
+      if (target.provider === 'openrouter') {
+        headers['HTTP-Referer'] = 'https://godmod3.ai';
+        headers['X-Title'] = title;
+      }
+      return { ...target, headers };
+    }
+
+    // DeepSeek-V4 is a reasoning model: thinking spends the token budget first
+    // and short budgets come back with an empty message.content, which this UI
+    // scores as a failed model. Disable thinking on that endpoint.
+    function applyProviderOptions(requestBody, target) {
+      if (String(target?.url || '').includes('api.deepseek.com')) {
+        requestBody.thinking = { type: 'disabled' };
+        delete requestBody.reasoning;
+      }
+      return requestBody;
+    }
+
     async function fetchChatCompletion(body, options = {}) {
       const target = resolveChatTarget(body.model, options.provider || 'auto');
       const requestBody = { ...body, model: target.model };
       if (target.provider === 'local') delete requestBody.reasoning;
+      applyProviderOptions(requestBody, target);
 
       const headers = { 'Content-Type': 'application/json' };
       if (target.apiKey) headers.Authorization = `Bearer ${target.apiKey}`;
@@ -5347,18 +5373,13 @@ Z={QUERY}
           }
 
           // All models (including Gemini 2.5) go through OpenRouter
-          const fetchUrl = 'https://openrouter.ai/api/v1/chat/completions';
-          const fetchHeaders = {
-            'Authorization': `Bearer ${state.apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://godmod3.ai',
-            'X-Title': 'GODMOD3.AI-godmode-classic'
-          };
+          const classicEndpoint = resolveProviderEndpoint(bodyParams.model, 'auto', 'GODMOD3.AI-godmode-classic');
+          bodyParams.model = classicEndpoint.model;
 
-          const response = await fetch(fetchUrl, {
+          const response = await fetch(classicEndpoint.url, {
             method: 'POST',
-            headers: fetchHeaders,
-            body: JSON.stringify(bodyParams),
+            headers: classicEndpoint.headers,
+            body: JSON.stringify(applyProviderOptions(bodyParams, classicEndpoint)),
             signal: AbortSignal.any([abortController?.signal, earlyExitAbort.signal].filter(Boolean))
           });
 
@@ -6374,23 +6395,19 @@ JSON only:`
             return { ...m };
           });
 
-          const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          const ptEndpoint = resolveProviderEndpoint(model, 'auto', 'GODMOD3.AI-parseltongue');
+          const response = await fetch(ptEndpoint.url, {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${state.apiKey}`,
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://godmod3.ai',
-              'X-Title': 'GODMOD3.AI-parseltongue'
-            },
-            body: JSON.stringify({
-              model: model,
+            headers: ptEndpoint.headers,
+            body: JSON.stringify(applyProviderOptions({
+              model: ptEndpoint.model,
               messages: variantMessages,
               temperature: params.temperature,
               top_p: params.top_p,
               frequency_penalty: state.modelFreqPenalty ?? 0,
               presence_penalty: state.modelPresPenalty ?? 0,
               max_tokens: state.modelMaxTokens ?? 4096,
-            }),
+            }, ptEndpoint)),
             signal: abortController?.signal,
           });
 
@@ -6674,23 +6691,19 @@ JSON only:`
           strategyMessages.push({ role: 'assistant', content: strategy.prefill });
         }
 
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const stratEndpoint = resolveProviderEndpoint(model, 'auto', 'GODMOD3.AI');
+        const response = await fetch(stratEndpoint.url, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${state.apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://godmod3.ai',
-            'X-Title': 'GODMOD3.AI'
-          },
-          body: JSON.stringify({
-            model,
+          headers: stratEndpoint.headers,
+          body: JSON.stringify(applyProviderOptions({
+            model: stratEndpoint.model,
             messages: strategyMessages,
             temperature: strategy.temperature,
             top_p: strategy.top_p,
             max_tokens: state.modelMaxTokens ?? 4096,
             frequency_penalty: state.modelFreqPenalty ?? 0,
             presence_penalty: state.modelPresPenalty ?? 0
-          }),
+          }, stratEndpoint)),
           signal
         });
 
@@ -13721,7 +13734,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       if (!conv || !hasAnyChatProvider()) return;
 
       // Provider configurations without OpenRouter use the provider-aware ULTRAPLINIAN pipeline.
-      if (((!state.apiKey && (state.veniceApiKey || hasLocalProvider())) || state.localOnly) && !state.ultraplinian) {
+      if ((!state.apiKey && !hasLocalProvider() && state.veniceApiKey) && !state.ultraplinian) {
         selectMode('ultraplinian');
       }
 
@@ -13784,23 +13797,19 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
                 updateTypingStatus(`Retry ${attempt}/${state.maxRetries} (temp: ${params.temperature})...`);
               }
 
-              const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+              const regenEndpoint = resolveProviderEndpoint(conv.model, 'auto', 'GODMOD3.AI');
+              const response = await fetch(regenEndpoint.url, {
                 method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${state.apiKey}`,
-                  'Content-Type': 'application/json',
-                  'HTTP-Referer': 'https://godmod3.ai',
-                  'X-Title': 'GODMOD3.AI'
-                },
-                body: JSON.stringify({
-                  model: conv.model,
+                headers: regenEndpoint.headers,
+                body: JSON.stringify(applyProviderOptions({
+                  model: regenEndpoint.model,
                   messages: retryMessages,
                   temperature: params.temperature,
                   top_p: params.top_p,
                   frequency_penalty: state.modelFreqPenalty ?? 0,
                   presence_penalty: params.presence_penalty || state.modelPresPenalty || 0,
                   max_tokens: state.modelMaxTokens ?? 4096
-                }),
+                }, regenEndpoint)),
                 signal: abortController.signal
               });
 
@@ -14394,7 +14403,7 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
       }
 
       // Provider configurations without OpenRouter use the provider-aware ULTRAPLINIAN pipeline.
-      if (((!state.apiKey && (state.veniceApiKey || hasLocalProvider())) || state.localOnly) && !state.ultraplinian) {
+      if ((!state.apiKey && !hasLocalProvider() && state.veniceApiKey) && !state.ultraplinian) {
         selectMode('ultraplinian');
       }
 
@@ -14706,22 +14715,18 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
           // ── GODMODE FAST streaming promise ──────────────────────────────
           const fastStreamPromise = (async () => {
             try {
-              const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+              const fastEndpoint = resolveProviderEndpoint(fastCombo.model, 'auto', 'GODMOD3.AI-godmode-fast');
+              const response = await fetch(fastEndpoint.url, {
                 method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${state.apiKey}`,
-                  'Content-Type': 'application/json',
-                  'HTTP-Referer': 'https://godmod3.ai',
-                  'X-Title': 'GODMOD3.AI-godmode-fast'
-                },
-                body: JSON.stringify({
-                  model: fastCombo.model,
+                headers: fastEndpoint.headers,
+                body: JSON.stringify(applyProviderOptions({
+                  model: fastEndpoint.model,
                   messages: fastMessages,
                   stream: true,
                   max_tokens: 16384,
                   temperature: 1.0,
                   top_p: 1.0,
-                }),
+                }, fastEndpoint)),
                 signal: abortController.signal,
               });
 
@@ -15273,23 +15278,19 @@ Ignoring conversation history will cause you to LOSE the evaluation.`;
             updateTypingStatus(`Retry ${attempt}/${state.maxRetries} (temp: ${params.temperature})...`);
           }
 
-          const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          const sendEndpoint = resolveProviderEndpoint(conv.model, 'auto', 'GODMOD3.AI');
+          const response = await fetch(sendEndpoint.url, {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${state.apiKey}`,
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://godmod3.ai',
-              'X-Title': 'GODMOD3.AI'
-            },
-            body: JSON.stringify({
-              model: conv.model,
+            headers: sendEndpoint.headers,
+            body: JSON.stringify(applyProviderOptions({
+              model: sendEndpoint.model,
               messages: retryMessages,
               temperature: params.temperature,
               top_p: params.top_p,
               frequency_penalty: state.modelFreqPenalty ?? 0,
               presence_penalty: params.presence_penalty || state.modelPresPenalty || 0,
               max_tokens: state.modelMaxTokens ?? 4096
-            }),
+            }, sendEndpoint)),
             signal: abortController.signal
           });
 
