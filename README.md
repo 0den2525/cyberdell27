@@ -125,6 +125,19 @@ G0DM0D3 has no account system. Its data flows are intentionally documented here 
 | App telemetry | On by default. It includes a random page-session ID, timestamps, model/mode/tier, timing and success data, scores, content lengths, pipeline configuration, conversation depth, image presence, and classification labels. It does **not intentionally include prompt text, response text, images, or API keys**. |
 | Network address | The Cloudflare telemetry function temporarily reads the request IP for an in-memory rate limit. The IP is not added to the telemetry event or Hugging Face JSONL by G0DM0D3. Cloudflare, model providers, and other hosting infrastructure may keep their own network logs. |
 
+### Atlas Cloud (optional provider)
+
+Settings → API Keys → **LLM Provider** lets you choose Atlas Cloud instead of OpenRouter. This is opt-in and off by default.
+
+| Data | Where it goes |
+|---|---|
+| Prompts, conversation context, and responses (direct chat, ULTRAPLINIAN races, CONSORTIUM synthesis) | To `https://api.atlascloud.ai/v1`. Atlas Cloud is an aggregation platform: it forwards requests to the downstream model provider of the model you pick, and Atlas Cloud and that provider may retain data under their own policies (for example for billing and troubleshooting). Check Atlas Cloud's own terms and privacy policy before sending sensitive content; G0DM0D3 has not independently audited them. |
+| Atlas Cloud API key | Stored in browser storage (or `ATLASCLOUD_API_KEY` on the self-hosted API server) and sent only as a Bearer token to the Atlas Cloud endpoint. |
+
+While Atlas Cloud is selected, chat and race requests go to Atlas Cloud only; there is no automatic fallback to OpenRouter or another provider when a request fails. Model lists for Atlas Cloud are static and were last checked against its public catalog (`GET /v1/models`) on 2026-10-19; run `npm run check:atlascloud-models` to re-validate them.
+
+**Removal / opting out:** switch the provider back to OpenRouter in Settings, clear the Atlas Cloud API key field, and (self-hosted API) unset `ATLASCLOUD_API_KEY` and stop sending `llm_provider: "atlascloud"`. Revoke the key in the Atlas Cloud console to invalidate it. Data already sent is governed by the providers' retention policies and cannot be recalled by G0DM0D3.
+
 Telemetry batches in browser memory and is sent to `/api/telemetry` every five minutes, at 50 events, or on page unload. The endpoint allowlists top-level fields and, when Hugging Face publishing is configured, writes JSONL under `incoming_v2/`. The allowlist is **not** a general-purpose recursive PII detector, so the project does not promise that arbitrary metadata values can never contain identifying information.
 
 When app telemetry is enabled, the standalone app also sends the raw prompt to an auxiliary model through the configured OpenRouter or local provider to produce the harm-taxonomy label. Only the resulting label is placed in the telemetry event. No-Log and Local-only mode skip this classifier.

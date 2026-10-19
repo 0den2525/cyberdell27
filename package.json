@@ -9,6 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:atlascloud": "tsx --test tests/atlascloud-provider.test.ts",
+    "check:atlascloud-models": "tsx scripts/check-atlascloud-models.ts",
     "api": "tsx api/server.ts",
     "api:dev": "tsx watch api/server.ts"
   },
