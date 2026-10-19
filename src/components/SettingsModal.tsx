@@ -282,6 +282,15 @@ function APIKeyTab() {
             Atlas Cloud
           </button>
         </div>
+        {llmProvider === 'atlascloud' && (
+          <p className="text-xs theme-secondary mt-3" role="note">
+            Data flow: with Atlas Cloud selected, your prompts, conversation context, and responses are sent to
+            Atlas Cloud (api.atlascloud.ai), an aggregation platform that forwards them to the downstream model
+            provider you choose (e.g. OpenAI, Anthropic, Google). Atlas Cloud and those providers may retain data
+            under their own policies, for example for billing and troubleshooting. G0DM0D3 does not control this.
+            To stop, switch back to OpenRouter and clear the Atlas Cloud key below.
+          </p>
+        )}
       </div>
 
       <div>
@@ -330,7 +339,8 @@ function APIKeyTab() {
       <div className="border-t border-theme-primary/20 pt-6">
         <h3 className="text-lg font-semibold mb-2">Atlas Cloud API Key</h3>
         <p className="text-sm theme-secondary mb-4">
-          Used when Atlas Cloud is selected above. The key is stored locally and sent only to the Atlas Cloud API.
+          Used when Atlas Cloud is selected above. The key is stored in this browser and sent only to the Atlas Cloud API.
+          Requests routed through Atlas Cloud are forwarded to third-party model providers (see the data-flow note above and the README Privacy section).
           Get your key at{' '}
           <a
             href="https://www.atlascloud.ai/console/api-keys"

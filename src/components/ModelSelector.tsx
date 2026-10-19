@@ -442,11 +442,11 @@ const ATLAS_CLOUD_MODELS: ModelInfo[] = [
     context: '400K'
   },
   {
-    id: 'openai/gpt-4o',
-    name: 'GPT-4o',
+    id: 'openai/gpt-5.4-mini',
+    name: 'GPT-5.4 Mini',
     provider: 'OpenAI via Atlas Cloud',
-    description: 'Reliable multimodal workhorse',
-    context: '128K'
+    description: 'Fast, cost-efficient GPT model',
+    context: '400K'
   },
   {
     id: 'deepseek-ai/deepseek-v3.2',

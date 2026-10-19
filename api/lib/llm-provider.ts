@@ -9,7 +9,7 @@ export function resolveProviderCredentials(input: {
   provider?: unknown
   openRouterApiKey?: unknown
   atlasCloudApiKey?: unknown
-  env?: NodeJS.ProcessEnv
+  env?: Record<string, string | undefined>
 }): ProviderCredentials {
   const provider = input.provider ?? 'openrouter'
   if (provider !== 'openrouter' && provider !== 'atlascloud') {

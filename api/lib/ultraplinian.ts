@@ -131,28 +131,36 @@ export const ULTRAPLINIAN_MODELS = {
   ],
 }
 
-/** Models currently exposed by Atlas Cloud's OpenAI-compatible LLM API. */
+/**
+ * Atlas Cloud race models.
+ *
+ * Provenance: static list, last checked against the public catalog
+ * (GET https://api.atlascloud.ai/v1/models) on 2026-10-19; all ids were present
+ * and the replacements were smoke-tested with a chat completion that day.
+ * Atlas Cloud's catalog changes over time, so re-validate with
+ * `npm run check:atlascloud-models` (exits non-zero if any id is missing).
+ */
 export const ATLAS_CLOUD_MODELS = {
   fast: [
     'google/gemini-2.5-flash',
     'google/gemini-3.5-flash',
     'deepseek-ai/deepseek-v3.2',
     'moonshotai/kimi-k2.5',
-    'openai/gpt-5-mini',
-    'zai-org/glm-5-turbo',
+    'openai/gpt-5.4-nano',
+    'zai-org/glm-5.3-flash',
   ],
   standard: [
-    'openai/gpt-4o',
+    'openai/gpt-5.4-mini',
     'google/gemini-2.5-pro',
     'anthropic/claude-sonnet-4.6',
     'qwen/qwen3.5-plus',
     'google/gemini-3-flash-preview',
   ],
   smart: [
-    'openai/gpt-5',
+    'xai/grok-4.3',
     'openai/gpt-5.5',
     'zai-org/glm-5',
-    'openai/gpt-5.2',
+    'qwen/qwen3.7-plus',
     'anthropic/claude-opus-4.6',
     'qwen/qwen3.7-max',
   ],
@@ -160,7 +168,7 @@ export const ATLAS_CLOUD_MODELS = {
     'xai/grok-4.5',
     'openai/gpt-5.4',
     'openai/gpt-5.6-luna',
-    'zai-org/glm-4.7',
+    'zai-org/glm-5.1',
     'minimaxai/minimax-m2.5',
     'google/gemini-3.1-pro-preview',
   ],
