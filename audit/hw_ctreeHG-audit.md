@@ -1,5 +1,9 @@
 # Audit Fitur Aktif — `hw_ctreeHG.xml`
 
+> ✅ **Perbaikan tersedia.** Temuan di laporan ini sudah dibuatkan patch-nya:
+> `audit/patch_ctree.py` (skrip) → `audit/out/hw_ctreeHG.hardened.xml` (21 perubahan).
+> Penjelasan tiap perubahan, efek samping, dan cara restore: **[audit/PATCH-NOTES.md](PATCH-NOTES.md)**.
+
 **Sumber data:** backup konfigurasi `hw_ctreeHG.xml` (381 KB, 2.474 baris, 2.202 elemen XML, 406 tag unik)
 **Format:** Huawei `InternetGatewayDevice` TR-181 (cwmp/tr-181-2-11-0), `DBEncrypt="1"` → semua password/PSK tersimpan terenkripsi (`$2...`)
 **Tanggal audit:** 2026-10-24 (WIB)

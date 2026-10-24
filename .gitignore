@@ -5,3 +5,7 @@ node_modules/
 .wrangler/
 dist/
 tsconfig.tsbuildinfo
+
+# Hasil patch berisi kredensial terenkripsi perangkat - jangan di-commit
+audit/out/
+__pycache__/
